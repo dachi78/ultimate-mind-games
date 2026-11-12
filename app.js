@@ -1,16 +1,16 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
+import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
-// ⚠️ REPLACE THIS WITH YOUR FIREBASE CONFIG KEYS FROM STEP 1
+// Your Web App's Firebase Configuration
 const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://PASTE_YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "PASTE_YOUR_PROJECT",
-  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "PASTE_YOUR_SENDER_ID",
-  appId: "PASTE_YOUR_APP_ID"
+  apiKey: "AIzaSyCDh02-Eb7qpWavevk9xrt3h0Jbwb5vI8s",
+  authDomain: "ultimate-mind-games-by-dachi78.firebaseapp.com",
+  databaseURL: "https://ultimate-mind-games-by-dachi78-default-rtdb.firebaseio.com",
+  projectId: "ultimate-mind-games-by-dachi78",
+  storageBucket: "ultimate-mind-games-by-dachi78.firebasestorage.app",
+  messagingSenderId: "37380071346",
+  appId: "1:37380071346:web:89ca4df227787ea27b4eab"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -25,9 +25,18 @@ let prayerTimings = null;
 // Arabic Alphabet for Horouf wa Alouf
 const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
 
-// 1. Authentication
-document.getElementById("google-login-btn").onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).then(onLogin);
-document.getElementById("guest-login-btn").onclick = () => signInAnonymously(auth).then(onLogin);
+// 1. Authentication (Google + Guest Mode)
+document.getElementById("google-login-btn").onclick = () => {
+  signInWithPopup(auth, new GoogleAuthProvider())
+    .then(onLogin)
+    .catch((err) => alert("Login Error: " + err.message));
+};
+
+document.getElementById("guest-login-btn").onclick = () => {
+  signInAnonymously(auth)
+    .then(onLogin)
+    .catch((err) => alert("Guest Login Error: " + err.message));
+};
 
 function onLogin(res) {
   currentUser = res.user;
@@ -70,7 +79,7 @@ function enterRoom(code) {
     document.getElementById("buzzer-btn").classList.remove("hidden");
   }
 
-  // Listen to real-time updates
+  // Listen to real-time updates from Firebase
   onValue(ref(db, `rooms/${code}`), (snap) => {
     const data = snap.val();
     if (!data) return;
@@ -104,7 +113,7 @@ function renderGrid(activeLetter, claimedLetters) {
 
     btn.onclick = () => {
       if (!isHost) return;
-      // Tap once to select letter, tap again to mark it claimed/green
+      // Tap once to highlight letter, tap again to mark it claimed (green)
       if (activeLetter === letter) {
         update(ref(db, `rooms/${currentRoom}/claimedLetters`), { [letter]: true });
         update(ref(db, `rooms/${currentRoom}`), { activeLetter: "", buzzerWinner: "" });
