@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ar" dir="auto">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ultimate Mind Games | حروف و ألوف</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Salah Auto-Pause Overlay -->
+  <div id="salah-overlay" class="overlay hidden">
+    <div class="modal-box">
+      <h2>🕌 وقت الصلاة (Prayer Break)</h2>
+      <p id="salah-text">اللعبة متوقفة مؤقتاً لأداء الصلاة. تقبل الله!</p>
+      <button id="resume-salah-btn" class="btn primary">استئناف اللعب (Resume)</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <header>
+      <h1>🧠 Ultimate Mind Games</h1>
+      <label class="salah-toggle">
+        <input type="checkbox" id="muslim-mode-checkbox">
+        <span>🕌 تفعيل التوقف التلقائي للصلاة (Auto-Pause for Salah)</span>
+      </label>
+    </header>
+
+    <!-- 1. Login Screen -->
+    <section id="auth-screen" class="card">
+      <h2>تسجيل الدخول للبدء</h2>
+      <button id="google-login-btn" class="btn google">Sign in with Google</button>
+      <button id="guest-login-btn" class="btn secondary">العب كضيف (Play as Guest)</button>
+    </section>
+
+    <!-- 2. Main Lobby -->
+    <section id="lobby-screen" class="card hidden">
+      <p id="welcome-msg"></p>
+      <button id="create-room-btn" class="btn primary">🎙️ إنشاء غرفة جديدة (Host Game)</button>
+      <div class="divider">أو (OR)</div>
+      <input type="number" id="room-code-input" placeholder="أدخل رمز الغرفة (4 أرقام)">
+      <button id="join-room-btn" class="btn success">🎮 انضمام للغرفة (Join Room)</button>
+    </section>
+
+    <!-- 3. Live Game Arena (Horouf wa Alouf Mode) -->
+    <section id="game-screen" class="card hidden">
+      <div class="room-header">
+        <span id="display-room-code">Room: ----</span>
+        <span id="role-badge">Player</span>
+      </div>
+
+      <!-- Active Prompt / Buzzer Status -->
+      <div id="status-banner" class="banner">اختر حرفاً من اللوحة للبدء!</div>
+
+      <!-- Arabic Alphabet Grid -->
+      <div id="letter-grid" class="grid"></div>
+
+      <!-- Mobile Player Buzzer -->
+      <button id="buzzer-btn" class="buzzer hidden">🔔 اضغط للجرس! (BUZZ)</button>
+      <button id="reset-buzzer-btn" class="btn secondary hidden">🔄 تصفير الجرس (Host Reset)</button>
+    </section>
+
+    <footer>
+      <small>Free-to-play platform. Prizes are independently provided by room hosts.</small>
+    </footer>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
