@@ -19,6 +19,7 @@ const db = getDatabase(app);
 let currentUser = null;
 let currentRoom = null;
 let isHost = false;
+let uploadedAvatarBase64 = null;
 
 const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
 
@@ -52,6 +53,21 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
+// Top-Right Dropdown Menu Toggle
+const menuToggleBtn = document.getElementById("menu-toggle-btn");
+const dropdownMenu = document.getElementById("dropdown-menu");
+
+menuToggleBtn.onclick = (e) => {
+  e.stopPropagation();
+  dropdownMenu.classList.toggle("show");
+};
+
+window.onclick = () => {
+  if (dropdownMenu.classList.contains("show")) {
+    dropdownMenu.classList.remove("show");
+  }
+};
+
 // Login Handlers
 document.getElementById("google-login-btn").onclick = () => {
   signInWithPopup(auth, new GoogleAuthProvider())
@@ -71,36 +87,58 @@ document.getElementById("logout-btn").onclick = () => {
   signOut(auth).catch((err) => alert("Logout Error: " + err.message));
 };
 
-// Profile Customization Modal Handlers
-document.getElementById("edit-profile-btn").onclick = () => {
+// Friends & Settings Handlers
+document.getElementById("friends-menu-btn").onclick = () => {
+  document.getElementById("friends-modal").classList.remove("hidden");
+};
+document.getElementById("close-friends-btn").onclick = () => {
+  document.getElementById("friends-modal").classList.add("hidden");
+};
+document.getElementById("settings-menu-btn").onclick = () => {
+  alert("قريباً: إعدادات الصوت، والوضع الليلي المتقدم، وتخصيص اللعبة!");
+};
+
+// Profile Customization Modal & Image Upload Handler
+document.getElementById("edit-profile-menu-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.remove("hidden");
   document.getElementById("new-username-input").value = currentUser.displayName || "";
-  document.getElementById("new-avatar-input").value = currentUser.photoURL || "";
+  uploadedAvatarBase64 = currentUser.photoURL || null;
 };
 
 document.getElementById("cancel-profile-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.add("hidden");
 };
 
+// Convert Uploaded Image File to Base64
+document.getElementById("avatar-file-input").onchange = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      uploadedAvatarBase64 = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
 document.getElementById("save-profile-btn").onclick = () => {
   const newName = document.getElementById("new-username-input").value.trim();
-  const newAvatar = document.getElementById("new-avatar-input").value.trim();
-
   if (!newName) return alert("الرجاء إدخال اسم مستخدم صحيح");
+
+  const finalAvatar = uploadedAvatarBase64 || currentUser.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
 
   updateProfile(currentUser, {
     displayName: newName,
-    photoURL: newAvatar || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png"
+    photoURL: finalAvatar
   }).then(() => {
     document.getElementById("profile-name").innerText = newName;
-    if (newAvatar) document.getElementById("user-avatar").src = newAvatar;
+    document.getElementById("user-avatar").src = finalAvatar;
     document.getElementById("edit-profile-modal").classList.add("hidden");
     
-    // Update active room record if currently in a room
     if (currentRoom) {
       update(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`), {
         name: newName,
-        photoURL: newAvatar || ""
+        photoURL: finalAvatar
       });
     }
     alert("تم تحديث الملف الشخصي بنجاح!");
@@ -168,7 +206,6 @@ function enterRoom(code) {
   document.getElementById("display-room-code").innerText = `Room: ${code}`;
   document.getElementById("role-badge").innerText = isHost ? "🎙️ Host" : "🎮 Player";
 
-  // Register player in room roster with real-time disconnection cleanup
   const playerRef = ref(db, `rooms/${code}/players/${currentUser.uid}`);
   set(playerRef, {
     name: currentUser.displayName || "Guest-" + currentUser.uid.slice(0, 4),
@@ -184,19 +221,17 @@ function enterRoom(code) {
     document.getElementById("buzzer-btn").classList.remove("hidden");
   }
 
-  // Listen to Room State Real-time Updates
   onValue(ref(db, `rooms/${code}`), (snap) => {
     const data = snap.val();
     if (!data) return;
 
-    // Render Players in Waiting Lobby Roster
     const rosterList = document.getElementById("players-list");
     rosterList.innerHTML = "";
     if (data.players) {
       Object.entries(data.players).forEach(([uid, p]) => {
         const li = document.createElement("li");
         li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
-        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%"> <span>${p.name} (${p.role})</span>`;
+        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role})</span>`;
         
         if (isHost && uid !== currentUser.uid) {
           const adminBtn = document.createElement("button");
@@ -214,7 +249,6 @@ function enterRoom(code) {
       });
     }
 
-    // Switch from waiting lobby to active game when host starts
     if (data.status === "playing") {
       document.getElementById("waiting-lobby").classList.add("hidden");
       document.getElementById("active-game-container").classList.remove("hidden");
