@@ -32,21 +32,66 @@
       <button id="guest-login-btn" class="btn secondary">العب كضيف (Play as Guest)</button>
     </section>
 
-    <!-- 2. Main Lobby -->
-    <section id="lobby-screen" class="card hidden">
-      <p id="welcome-msg"></p>
-      <button id="create-room-btn" class="btn primary">🎙️ إنشاء غرفة جديدة (Host Game)</button>
-      <div class="divider">أو (OR)</div>
-      <input type="number" id="room-code-input" placeholder="أدخل رمز الغرفة (4 أرقام)">
-      <button id="join-room-btn" class="btn success">🎮 انضمام للغرفة (Join Room)</button>
-    </section>
+    <!-- User Header Profile Bar -->
+<div id="user-profile-bar" class="card hidden" style="flex-direction: row; align-items: center; gap: 12px; padding: 12px;">
+  <img id="user-avatar" src="" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+  <div>
+    <span id="profile-name" style="font-weight: bold; color: #38bdf8;"></span>
+    <div style="font-size: 0.8rem; color: #94a3b8;">Customization / Profile Active</div>
+  </div>
+</div>
 
-    <!-- 3. Live Game Arena (Horouf wa Alouf Mode) -->
-    <section id="game-screen" class="card hidden">
-      <div class="room-header">
-        <span id="display-room-code">Room: ----</span>
-        <span id="role-badge">Player</span>
-      </div>
+<!-- 2. Main Lobby / Menu -->
+<section id="lobby-screen" class="card hidden">
+  <button id="open-host-setup-btn" class="btn primary">🎙️ إنشاء غرفة جديدة (Host Game Setup)</button>
+  <div class="divider">أو (OR)</div>
+  <input type="text" id="room-code-input" placeholder="أدخل رمز الغرفة (مثل X7K9)" style="text-transform: uppercase;">
+  <button id="join-room-btn" class="btn success">🎮 انضمام للغرفة (Join Room)</button>
+</section>
+
+<!-- Host Configuration Modal/Screen -->
+<section id="host-setup-screen" class="card hidden">
+  <h2>إعدادات غرفة المضيف</h2>
+  <label>اختر وضع اللعبة (Game Mode):</label>
+  <select id="game-mode-select" class="input-field">
+    <option value="horouf">حروف و ألوف (Horouf wa Alouf)</option>
+    <option value="millionaire">سلم المليون (Millionaire Ladder)</option>
+    <option value="combo">كومبو الألعاب (Combo Mode)</option>
+  </select>
+
+  <label>الحد الأقصى للاعبين:</label>
+  <input type="number" id="max-players-input" value="10" min="2" max="50">
+
+  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+    <input type="checkbox" id="voice-chat-toggle"> تفعيل الدردشة الصوتية (Voice Chat Option)
+  </label>
+
+  <button id="confirm-host-btn" class="btn success">🚀 إنشاء غرفة الانتظار (Create Lobby)</button>
+  <button id="cancel-host-btn" class="btn secondary">إلغاء</button>
+</section>
+
+<!-- Waiting Lobby / Game Arena -->
+<section id="game-screen" class="card hidden">
+  <div class="room-header">
+    <span id="display-room-code">Room: ----</span>
+    <span id="role-badge">Player</span>
+  </div>
+
+  <!-- Waiting Lobby Roster (Visible before host starts) -->
+  <div id="waiting-lobby" class="card" style="background: #0f172a; border: 1px solid #334155;">
+    <h3>👥 غرفة الانتظار (Waiting Lobby)</h3>
+    <ul id="players-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;"></ul>
+    <button id="start-game-btn" class="btn primary hidden" style="margin-top: 10px;">🎮 ابدأ اللعبة الآن (Start Game)</button>
+  </div>
+
+  <!-- Active Game Board (Hidden until host starts) -->
+  <div id="active-game-container" class="hidden">
+    <div id="status-banner" class="banner">في انتظار بدء اللعبة...</div>
+    <div id="letter-grid" class="grid"></div>
+    <button id="buzzer-btn" class="buzzer hidden">🔔 اضغط للجرس! (BUZZ)</button>
+    <button id="reset-buzzer-btn" class="btn secondary hidden">🔄 تصفير الجرس (Host Reset)</button>
+  </div>
+</section>
 
       <!-- Active Prompt / Buzzer Status -->
       <div id="status-banner" class="banner">اختر حرفاً من اللوحة للبدء!</div>
