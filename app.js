@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, setPersistence, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, setPersistence, browserLocalPersistence, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
 import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -22,7 +22,7 @@ let isHost = false;
 
 const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
 
-// 1. Save Account Mechanic: Set Local Persistence & Auto-Restore Session
+// Set Persistence & Listen for Auth State Changes
 setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.error("Persistence setup error:", err);
 });
@@ -39,10 +39,21 @@ onAuthStateChanged(auth, (user) => {
 
     document.getElementById("auth-screen").classList.add("hidden");
     document.getElementById("lobby-screen").classList.remove("hidden");
+  } else {
+    // User is signed out: clear state and return to login screen
+    currentUser = null;
+    currentRoom = null;
+    isHost = false;
+
+    document.getElementById("user-profile-bar").classList.add("hidden");
+    document.getElementById("lobby-screen").classList.add("hidden");
+    document.getElementById("host-setup-screen").classList.add("hidden");
+    document.getElementById("game-screen").classList.add("hidden");
+    document.getElementById("auth-screen").classList.remove("hidden");
   }
 });
 
-// 2. Login Handlers
+// Login Handlers
 document.getElementById("google-login-btn").onclick = () => {
   signInWithPopup(auth, new GoogleAuthProvider())
     .catch((err) => alert("Google Login Error: " + err.message));
@@ -51,6 +62,11 @@ document.getElementById("google-login-btn").onclick = () => {
 document.getElementById("guest-login-btn").onclick = () => {
   signInAnonymously(auth)
     .catch((err) => alert("Guest Login Error: " + err.message));
+};
+
+// Logout Handler
+document.getElementById("logout-btn").onclick = () => {
+  signOut(auth).catch((err) => alert("Logout Error: " + err.message));
 };
 
 // Host Setup Navigation
@@ -64,7 +80,7 @@ document.getElementById("cancel-host-btn").onclick = () => {
   document.getElementById("lobby-screen").classList.remove("hidden");
 };
 
-// Generate 6-Digit Alphanumeric Room Code (Mix of letters & numbers)
+// Generate 6-Digit Alphanumeric Room Code
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -96,7 +112,7 @@ document.getElementById("confirm-host-btn").onclick = () => {
   enterRoom(code);
 };
 
-// Join Room as Player (6 digits/characters required)
+// Join Room as Player
 document.getElementById("join-room-btn").onclick = () => {
   const code = document.getElementById("room-code-input").value.trim().toUpperCase();
   if (code.length !== 6) return alert("الرمز يجب أن يكون مكوناً من 6 خانات");
@@ -157,7 +173,7 @@ function enterRoom(code) {
       });
     }
 
-    // Clean Transition: Hide waiting lobby & show active game board when host clicks start
+    // Switch from waiting lobby to active game when host starts
     if (data.status === "playing") {
       document.getElementById("waiting-lobby").classList.add("hidden");
       document.getElementById("active-game-container").classList.remove("hidden");
