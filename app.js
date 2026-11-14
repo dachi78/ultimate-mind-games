@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
-import { getAuth, signInWithRedirect, GoogleAuthProvider, getRedirectResult, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
-import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDh02-Eb7qpWavevk9xrt3h0Jbwb5vI8s",
@@ -16,214 +16,42 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let currentUser = null;
-let currentRoom = null;
-let isHost = false;
+console.log("Firebase initialized successfully!");
 
-const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
-
-// Handle Google Redirect Result when user returns from Google login page
-getRedirectResult(auth)
-  .then((result) => {
-    if (result && result.user) {
-      onLogin(result);
-    }
-  })
-  .catch((err) => {
-    alert("Google Redirect Error: " + err.message);
-  });
-
-// 1. Login Handlers (Using Redirect for Mobile compatibility + Guest catch)
-document.getElementById("google-login-btn").onclick = () => {
-  signInWithRedirect(auth, new GoogleAuthProvider()).catch((err) => {
-    alert("Google Sign-In Failed: " + err.message);
-  });
-};
-
+// Test Guest Login Click
 document.getElementById("guest-login-btn").onclick = () => {
+  alert("Guest button was clicked! Connecting to Firebase...");
+  
   signInAnonymously(auth)
-    .then(onLogin)
-    .catch((err) => {
-      alert("Guest Login Error (Make sure Anonymous is enabled in Firebase): " + err.message);
+    .then((result) => {
+      const user = result.user;
+      alert("Guest login success! UID: " + user.uid);
+      
+      // Hide auth screen, show lobby
+      document.getElementById("auth-screen").classList.add("hidden");
+      document.getElementById("lobby-screen").classList.remove("hidden");
+      document.getElementById("profile-name").innerText = "Guest-" + user.uid.slice(0, 4);
+      document.getElementById("user-profile-bar").classList.remove("hidden");
+    })
+    .catch((error) => {
+      alert("Firebase Guest Error: " + error.message);
     });
 };
 
-function onLogin(res) {
-  currentUser = res.user;
-  const name = currentUser.displayName || "Guest-" + currentUser.uid.slice(0, 4);
-  const avatar = currentUser.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
-
-  document.getElementById("profile-name").innerText = name;
-  document.getElementById("user-avatar").src = avatar;
-  document.getElementById("user-profile-bar").classList.remove("hidden");
-
-  document.getElementById("auth-screen").classList.add("hidden");
-  document.getElementById("lobby-screen").classList.remove("hidden");
-}
-
-// Host Setup Navigation
-document.getElementById("open-host-setup-btn").onclick = () => {
-  document.getElementById("lobby-screen").classList.add("hidden");
-  document.getElementById("host-setup-screen").classList.remove("hidden");
-};
-
-document.getElementById("cancel-host-btn").onclick = () => {
-  document.getElementById("host-setup-screen").classList.add("hidden");
-  document.getElementById("lobby-screen").classList.remove("hidden");
-};
-
-// Generate Alphanumeric Room Code (e.g., K9X2)
-function generateRoomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-// Confirm Host Setup & Create Room
-document.getElementById("confirm-host-btn").onclick = () => {
-  const code = generateRoomCode();
-  const gameMode = document.getElementById("game-mode-select").value;
-  const maxPlayers = document.getElementById("max-players-input").value;
-  const voiceChat = document.getElementById("voice-chat-toggle").checked;
-
-  isHost = true;
-  set(ref(db, `rooms/${code}`), {
-    gameMode,
-    maxPlayers,
-    voiceChat,
-    status: "waiting",
-    hostUid: currentUser.uid,
-    activeLetter: "",
-    claimedLetters: {},
-    buzzerWinner: ""
-  });
-
-  enterRoom(code);
-};
-
-// Join Room as Player
-document.getElementById("join-room-btn").onclick = () => {
-  const code = document.getElementById("room-code-input").value.trim().toUpperCase();
-  if (code.length !== 4) return alert("الرمز يجب أن يكون من 4 خانات");
-  isHost = false;
-  enterRoom(code);
-};
-
-function enterRoom(code) {
-  currentRoom = code;
-  document.getElementById("lobby-screen").classList.add("hidden");
-  document.getElementById("host-setup-screen").classList.add("hidden");
-  document.getElementById("game-screen").classList.remove("hidden");
-  document.getElementById("display-room-code").innerText = `Room: ${code}`;
-  document.getElementById("role-badge").innerText = isHost ? "🎙️ Host" : "🎮 Player";
-
-  // Register player in room roster
-  const playerRef = ref(db, `rooms/${code}/players/${currentUser.uid}`);
-  set(playerRef, {
-    name: currentUser.displayName || "Guest-" + currentUser.uid.slice(0, 4),
-    photoURL: currentUser.photoURL || "",
-    role: isHost ? "host" : "player"
-  });
-
-  if (isHost) {
-    document.getElementById("start-game-btn").classList.remove("hidden");
-    document.getElementById("reset-buzzer-btn").classList.remove("hidden");
-  } else {
-    document.getElementById("buzzer-btn").classList.remove("hidden");
-  }
-
-  // Listen to Room State Real-time Updates
-  onValue(ref(db, `rooms/${code}`), (snap) => {
-    const data = snap.val();
-    if (!data) return;
-
-    const rosterList = document.getElementById("players-list");
-    rosterList.innerHTML = "";
-    if (data.players) {
-      Object.entries(data.players).forEach(([uid, p]) => {
-        const li = document.createElement("li");
-        li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
-        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%"> <span>${p.name} (${p.role})</span>`;
-        
-        if (isHost && uid !== currentUser.uid) {
-          const adminBtn = document.createElement("button");
-          adminBtn.innerText = p.role === "admin" ? "إلغاء مشرف" : "ترقية مشرف";
-          adminBtn.className = "btn secondary";
-          adminBtn.style.padding = "4px 8px";
-          adminBtn.style.fontSize = "0.75rem";
-          adminBtn.style.marginLeft = "auto";
-          adminBtn.onclick = () => {
-            update(ref(db, `rooms/${code}/players/${uid}`), { role: p.role === "admin" ? "player" : "admin" });
-          };
-          li.appendChild(adminBtn);
-        }
-        rosterList.appendChild(li);
-      });
-    }
-
-    if (data.status === "playing") {
-      document.getElementById("waiting-lobby").classList.add("hidden");
-      document.getElementById("active-game-container").classList.remove("hidden");
-
-      renderGrid(data.activeLetter, data.claimedLetters || {});
-      const banner = document.getElementById("status-banner");
-      if (data.buzzerWinner) {
-        banner.innerText = `🔔 أسرع إجابة: ${data.buzzerWinner}!`;
-        banner.style.borderColor = "#ef4444";
-      } else if (data.activeLetter) {
-        banner.innerText = `الحرف المختار: [ ${data.activeLetter} ]`;
-        banner.style.borderColor = "#f59e0b";
-      } else {
-        banner.innerText = "اختر حرفاً من اللوحة للبدء!";
-        banner.style.borderColor = "#334155";
-      }
-    }
-  });
-}
-
-document.getElementById("start-game-btn").onclick = () => {
-  if (!isHost) return;
-  update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
-};
-
-function renderGrid(activeLetter, claimedLetters) {
-  const grid = document.getElementById("letter-grid");
-  grid.innerHTML = "";
-  letters.forEach(letter => {
-    const btn = document.createElement("button");
-    btn.className = "letter-tile";
-    if (claimedLetters && claimedLetters[letter]) {
-      btn.classList.add("claimed");
-    } else if (letter === activeLetter) {
-      btn.classList.add("active");
-    }
-    btn.innerText = letter;
-
-    btn.onclick = () => {
-      if (!isHost) return;
-      if (activeLetter === letter) {
-        update(ref(db, `rooms/${currentRoom}/claimedLetters`), { [letter]: true });
-        update(ref(db, `rooms/${currentRoom}`), { activeLetter: "", buzzerWinner: "" });
-      } else {
-        update(ref(db, `rooms/${currentRoom}`), { activeLetter: letter, buzzerWinner: "" });
-      }
-    };
-    grid.appendChild(btn);
-  });
-}
-
-document.getElementById("buzzer-btn").onclick = () => {
-  const name = currentUser.displayName || "Guest";
-  onValue(ref(db, `rooms/${currentRoom}/buzzerWinner`), (snap) => {
-    if (!snap.val()) {
-      update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: name });
-    }
-  }, { onlyOnce: true });
-};
-
-document.getElementById("reset-buzzer-btn").onclick = () => {
-  update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: "" });
+// Test Google Login Click
+document.getElementById("google-login-btn").onclick = () => {
+  alert("Google button was clicked!");
+  signInWithPopup(auth, new GoogleAuthProvider())
+    .then((result) => {
+      const user = result.user;
+      alert("Google login success: " + user.displayName);
+      document.getElementById("auth-screen").classList.add("hidden");
+      document.getElementById("lobby-screen").classList.remove("hidden");
+      document.getElementById("profile-name").innerText = user.displayName;
+      if(user.photoURL) document.getElementById("user-avatar").src = user.photoURL;
+      document.getElementById("user-profile-bar").classList.remove("hidden");
+    })
+    .catch((error) => {
+      alert("Google Login Error: " + error.message);
+    });
 };
