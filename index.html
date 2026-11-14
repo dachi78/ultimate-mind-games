@@ -25,13 +25,16 @@
       </label>
     </header>
 
-    <!-- User Profile Bar (Hidden until login) -->
-    <div id="user-profile-bar" class="card hidden" style="display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 12px;">
-      <img id="user-avatar" src="" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-      <div>
-        <span id="profile-name" style="font-weight: bold; color: #38bdf8;"></span>
-        <div style="font-size: 0.8rem; color: #94a3b8;">الملف الشخصي نشط</div>
+    <!-- User Profile Bar with Logout Button -->
+    <div id="user-profile-bar" class="card hidden" style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <img id="user-avatar" src="" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+        <div>
+          <span id="profile-name" style="font-weight: bold; color: #38bdf8;"></span>
+          <div style="font-size: 0.8rem; color: #94a3b8;">الملف الشخصي نشط</div>
+        </div>
       </div>
+      <button id="logout-btn" class="btn secondary" style="padding: 6px 12px; font-size: 0.85rem; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">تسجيل خروج (Log Out)</button>
     </div>
 
     <!-- 1. Login Screen -->
@@ -101,6 +104,6 @@
     </footer>
   </div>
 
-  <script type="module" src="app.js?v=101"></script>
+  <script type="module" src="app.js?v=102"></script>
 </body>
 </html>
