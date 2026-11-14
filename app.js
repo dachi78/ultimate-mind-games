@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, setPersistence, browserLocalPersistence, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
-import { getDatabase, ref, set, update, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDh02-Eb7qpWavevk9xrt3h0Jbwb5vI8s",
@@ -17,6 +17,7 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 let currentUser = null;
+let currentProfile = { name: "", avatar: "" };
 let currentRoom = null;
 let isHost = false;
 let uploadedAvatarBase64 = null;
@@ -28,20 +29,36 @@ setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.error("Persistence setup error:", err);
 });
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
-    const name = user.displayName || "Guest-" + user.uid.slice(0, 4);
-    const avatar = user.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
+    const defaultName = user.displayName || "Guest-" + user.uid.slice(0, 4);
+    const defaultAvatar = user.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
 
-    document.getElementById("profile-name").innerText = name;
-    document.getElementById("user-avatar").src = avatar;
+    // Check Realtime Database for custom saved name/avatar
+    try {
+      const snap = await get(ref(db, `users/${user.uid}`));
+      if (snap.exists()) {
+        const dbData = snap.val();
+        currentProfile.name = dbData.name || defaultName;
+        currentProfile.avatar = dbData.avatar || defaultAvatar;
+      } else {
+        currentProfile = { name: defaultName, avatar: defaultAvatar };
+        await set(ref(db, `users/${user.uid}`), currentProfile);
+      }
+    } catch (e) {
+      currentProfile = { name: defaultName, avatar: defaultAvatar };
+    }
+
+    document.getElementById("profile-name").innerText = currentProfile.name;
+    document.getElementById("user-avatar").src = currentProfile.avatar;
     document.getElementById("user-profile-bar").classList.remove("hidden");
 
     document.getElementById("auth-screen").classList.add("hidden");
     document.getElementById("lobby-screen").classList.remove("hidden");
   } else {
     currentUser = null;
+    currentProfile = { name: "", avatar: "" };
     currentRoom = null;
     isHost = false;
 
@@ -98,53 +115,67 @@ document.getElementById("settings-menu-btn").onclick = () => {
   alert("قريباً: إعدادات الصوت، والوضع الليلي المتقدم، وتخصيص اللعبة!");
 };
 
-// Profile Customization Modal & Image Upload Handler
+// Profile Customization Modal & Image Compression Handler
 document.getElementById("edit-profile-menu-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.remove("hidden");
-  document.getElementById("new-username-input").value = currentUser.displayName || "";
-  uploadedAvatarBase64 = currentUser.photoURL || null;
+  document.getElementById("new-username-input").value = currentProfile.name;
+  uploadedAvatarBase64 = currentProfile.avatar;
 };
 
 document.getElementById("cancel-profile-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.add("hidden");
 };
 
-// Convert Uploaded Image File to Base64
+// Compress uploaded image to 96x96 JPEG so it stores cleanly in Firebase RTDB
 document.getElementById("avatar-file-input").onchange = (e) => {
   const file = e.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      uploadedAvatarBase64 = event.target.result;
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const size = 96;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, size, size);
+      uploadedAvatarBase64 = canvas.toDataURL("image/jpeg", 0.7);
     };
-    reader.readAsDataURL(file);
-  }
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
 };
 
-document.getElementById("save-profile-btn").onclick = () => {
+document.getElementById("save-profile-btn").onclick = async () => {
   const newName = document.getElementById("new-username-input").value.trim();
   if (!newName) return alert("الرجاء إدخال اسم مستخدم صحيح");
 
-  const finalAvatar = uploadedAvatarBase64 || currentUser.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
+  const finalAvatar = uploadedAvatarBase64 || currentProfile.avatar;
 
-  updateProfile(currentUser, {
-    displayName: newName,
-    photoURL: finalAvatar
-  }).then(() => {
+  try {
+    // Save name to Firebase Auth (short string, no URL limit issue)
+    await updateProfile(currentUser, { displayName: newName });
+
+    // Save both name and compressed avatar to Realtime Database
+    currentProfile = { name: newName, avatar: finalAvatar };
+    await set(ref(db, `users/${currentUser.uid}`), currentProfile);
+
     document.getElementById("profile-name").innerText = newName;
     document.getElementById("user-avatar").src = finalAvatar;
     document.getElementById("edit-profile-modal").classList.add("hidden");
-    
+
     if (currentRoom) {
-      update(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`), {
+      await update(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`), {
         name: newName,
         photoURL: finalAvatar
       });
     }
     alert("تم تحديث الملف الشخصي بنجاح!");
-  }).catch((err) => {
+  } catch (err) {
     alert("خطأ في التحديث: " + err.message);
-  });
+  }
 };
 
 // Host Setup Navigation
@@ -208,8 +239,8 @@ function enterRoom(code) {
 
   const playerRef = ref(db, `rooms/${code}/players/${currentUser.uid}`);
   set(playerRef, {
-    name: currentUser.displayName || "Guest-" + currentUser.uid.slice(0, 4),
-    photoURL: currentUser.photoURL || "",
+    name: currentProfile.name,
+    photoURL: currentProfile.avatar,
     role: isHost ? "host" : "player"
   });
   onDisconnect(playerRef).remove();
@@ -319,7 +350,7 @@ function renderGrid(activeLetter, claimedLetters) {
 
 // Buzzer Handlers
 document.getElementById("buzzer-btn").onclick = () => {
-  const name = currentUser.displayName || "Guest-" + currentUser.uid.slice(0, 4);
+  const name = currentProfile.name;
   onValue(ref(db, `rooms/${currentRoom}/buzzerWinner`), (snap) => {
     if (!snap.val()) {
       update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: name });
