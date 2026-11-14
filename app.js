@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, setPersistence, browserLocalPersistence, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
-import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, setPersistence, browserLocalPersistence, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
+import { getDatabase, ref, set, update, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDh02-Eb7qpWavevk9xrt3h0Jbwb5vI8s",
@@ -40,7 +40,6 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("auth-screen").classList.add("hidden");
     document.getElementById("lobby-screen").classList.remove("hidden");
   } else {
-    // User is signed out: clear state and return to login screen
     currentUser = null;
     currentRoom = null;
     isHost = false;
@@ -64,9 +63,50 @@ document.getElementById("guest-login-btn").onclick = () => {
     .catch((err) => alert("Guest Login Error: " + err.message));
 };
 
-// Logout Handler
+// Logout Handler with cleanup
 document.getElementById("logout-btn").onclick = () => {
+  if (currentRoom) {
+    remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
+  }
   signOut(auth).catch((err) => alert("Logout Error: " + err.message));
+};
+
+// Profile Customization Modal Handlers
+document.getElementById("edit-profile-btn").onclick = () => {
+  document.getElementById("edit-profile-modal").classList.remove("hidden");
+  document.getElementById("new-username-input").value = currentUser.displayName || "";
+  document.getElementById("new-avatar-input").value = currentUser.photoURL || "";
+};
+
+document.getElementById("cancel-profile-btn").onclick = () => {
+  document.getElementById("edit-profile-modal").classList.add("hidden");
+};
+
+document.getElementById("save-profile-btn").onclick = () => {
+  const newName = document.getElementById("new-username-input").value.trim();
+  const newAvatar = document.getElementById("new-avatar-input").value.trim();
+
+  if (!newName) return alert("الرجاء إدخال اسم مستخدم صحيح");
+
+  updateProfile(currentUser, {
+    displayName: newName,
+    photoURL: newAvatar || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png"
+  }).then(() => {
+    document.getElementById("profile-name").innerText = newName;
+    if (newAvatar) document.getElementById("user-avatar").src = newAvatar;
+    document.getElementById("edit-profile-modal").classList.add("hidden");
+    
+    // Update active room record if currently in a room
+    if (currentRoom) {
+      update(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`), {
+        name: newName,
+        photoURL: newAvatar || ""
+      });
+    }
+    alert("تم تحديث الملف الشخصي بنجاح!");
+  }).catch((err) => {
+    alert("خطأ في التحديث: " + err.message);
+  });
 };
 
 // Host Setup Navigation
@@ -128,13 +168,14 @@ function enterRoom(code) {
   document.getElementById("display-room-code").innerText = `Room: ${code}`;
   document.getElementById("role-badge").innerText = isHost ? "🎙️ Host" : "🎮 Player";
 
-  // Register player in room roster
+  // Register player in room roster with real-time disconnection cleanup
   const playerRef = ref(db, `rooms/${code}/players/${currentUser.uid}`);
   set(playerRef, {
     name: currentUser.displayName || "Guest-" + currentUser.uid.slice(0, 4),
     photoURL: currentUser.photoURL || "",
     role: isHost ? "host" : "player"
   });
+  onDisconnect(playerRef).remove();
 
   if (isHost) {
     document.getElementById("start-game-btn").classList.remove("hidden");
@@ -193,6 +234,21 @@ function enterRoom(code) {
     }
   });
 }
+
+// Quit Room Handler
+document.getElementById("quit-room-btn").onclick = () => {
+  if (currentRoom) {
+    remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
+    currentRoom = null;
+  }
+  document.getElementById("game-screen").classList.add("hidden");
+  document.getElementById("active-game-container").classList.add("hidden");
+  document.getElementById("waiting-lobby").classList.remove("hidden");
+  document.getElementById("start-game-btn").classList.add("hidden");
+  document.getElementById("buzzer-btn").classList.add("hidden");
+  document.getElementById("reset-buzzer-btn").classList.add("hidden");
+  document.getElementById("lobby-screen").classList.remove("hidden");
+};
 
 // Host Starts the Game
 document.getElementById("start-game-btn").onclick = () => {
