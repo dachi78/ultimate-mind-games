@@ -1,8 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
-import { getDatabase, ref, set, update, onValue, remove } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
+import { getAuth, signInWithRedirect, GoogleAuthProvider, getRedirectResult, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
+import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
-// Your Web App's Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCDh02-Eb7qpWavevk9xrt3h0Jbwb5vI8s",
   authDomain: "ultimate-mind-games-by-dachi78.firebaseapp.com",
@@ -23,16 +22,37 @@ let isHost = false;
 
 const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
 
-// 1. Login Handlers (Google + Guest Mode)
-document.getElementById("google-login-btn").onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).then(onLogin).catch(err => alert("Login Error: " + err.message));
-document.getElementById("guest-login-btn").onclick = () => signInAnonymously(auth).then(onLogin).catch(err => alert("Guest Error: " + err.message));
+// Handle Google Redirect Result when user returns from Google login page
+getRedirectResult(auth)
+  .then((result) => {
+    if (result && result.user) {
+      onLogin(result);
+    }
+  })
+  .catch((err) => {
+    alert("Google Redirect Error: " + err.message);
+  });
+
+// 1. Login Handlers (Using Redirect for Mobile compatibility + Guest catch)
+document.getElementById("google-login-btn").onclick = () => {
+  signInWithRedirect(auth, new GoogleAuthProvider()).catch((err) => {
+    alert("Google Sign-In Failed: " + err.message);
+  });
+};
+
+document.getElementById("guest-login-btn").onclick = () => {
+  signInAnonymously(auth)
+    .then(onLogin)
+    .catch((err) => {
+      alert("Guest Login Error (Make sure Anonymous is enabled in Firebase): " + err.message);
+    });
+};
 
 function onLogin(res) {
   currentUser = res.user;
   const name = currentUser.displayName || "Guest-" + currentUser.uid.slice(0, 4);
   const avatar = currentUser.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
 
-  // Display Profile Bar & Avatar
   document.getElementById("profile-name").innerText = name;
   document.getElementById("user-avatar").src = avatar;
   document.getElementById("user-profile-bar").classList.remove("hidden");
@@ -62,7 +82,7 @@ function generateRoomCode() {
   return code;
 }
 
-// Confirm Host Setup & Create Room in Firebase
+// Confirm Host Setup & Create Room
 document.getElementById("confirm-host-btn").onclick = () => {
   const code = generateRoomCode();
   const gameMode = document.getElementById("game-mode-select").value;
@@ -103,7 +123,7 @@ function enterRoom(code) {
   // Register player in room roster
   const playerRef = ref(db, `rooms/${code}/players/${currentUser.uid}`);
   set(playerRef, {
-    name: currentUser.displayName || "Guest",
+    name: currentUser.displayName || "Guest-" + currentUser.uid.slice(0, 4),
     photoURL: currentUser.photoURL || "",
     role: isHost ? "host" : "player"
   });
@@ -120,7 +140,6 @@ function enterRoom(code) {
     const data = snap.val();
     if (!data) return;
 
-    // Render Players in Waiting Lobby Roster
     const rosterList = document.getElementById("players-list");
     rosterList.innerHTML = "";
     if (data.players) {
@@ -145,7 +164,6 @@ function enterRoom(code) {
       });
     }
 
-    // Switch from Waiting Lobby to Active Game when Host starts
     if (data.status === "playing") {
       document.getElementById("waiting-lobby").classList.add("hidden");
       document.getElementById("active-game-container").classList.remove("hidden");
@@ -166,13 +184,11 @@ function enterRoom(code) {
   });
 }
 
-// Host Starts the Game
 document.getElementById("start-game-btn").onclick = () => {
   if (!isHost) return;
   update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
 };
 
-// Horouf Letter Grid Render & Interaction
 function renderGrid(activeLetter, claimedLetters) {
   const grid = document.getElementById("letter-grid");
   grid.innerHTML = "";
@@ -199,7 +215,6 @@ function renderGrid(activeLetter, claimedLetters) {
   });
 }
 
-// Buzzer Handlers
 document.getElementById("buzzer-btn").onclick = () => {
   const name = currentUser.displayName || "Guest";
   onValue(ref(db, `rooms/${currentRoom}/buzzerWinner`), (snap) => {
@@ -212,4 +227,3 @@ document.getElementById("buzzer-btn").onclick = () => {
 document.getElementById("reset-buzzer-btn").onclick = () => {
   update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: "" });
 };
-```[cite: 2]
