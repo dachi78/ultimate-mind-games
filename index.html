@@ -1,4 +1,4 @@
-<!<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="auto">
 <head>
   <meta charset="UTF-8">
@@ -25,27 +25,30 @@
       </label>
     </header>
 
+    <!-- User Profile Bar (Hidden until login) -->
+    <div id="user-profile-bar" class="card hidden" style="display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 12px;">
+      <img id="user-avatar" src="" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+      <div>
+        <span id="profile-name" style="font-weight: bold; color: #38bdf8;"></span>
+        <div style="font-size: 0.8rem; color: #94a3b8;">الملف الشخصي نشط</div>
+      </div>
+    </div>
+
     <!-- 1. Login Screen -->
     <section id="auth-screen" class="card">
       <h2>تسجيل الدخول للبدء</h2>
       <button id="google-login-btn" class="btn google">Sign in with Google</button>
       <button id="guest-login-btn" class="btn secondary">العب كضيف (Play as Guest)</button>
+      <p style="margin-top: 14px; font-size: 0.85rem; color: #94a3b8; text-align: center; line-height: 1.5;">
+        ليس لديك حساب؟ يمكنك تسجيل الدخول بحساب Google أو إنشاء حساب جديد مباشرة عبر زر Google أعلاه.
+      </p>
     </section>
-
-    <!-- User Header Profile Bar -->
-    <div id="user-profile-bar" class="card hidden" style="flex-direction: row; align-items: center; gap: 12px; padding: 12px;">
-      <img id="user-avatar" src="" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-      <div>
-        <span id="profile-name" style="font-weight: bold; color: #38bdf8;"></span>
-        <div style="font-size: 0.8rem; color: #94a3b8;">Customization / Profile Active</div>
-      </div>
-    </div>
 
     <!-- 2. Main Lobby / Menu -->
     <section id="lobby-screen" class="card hidden">
       <button id="open-host-setup-btn" class="btn primary">🎙️ إنشاء غرفة جديدة (Host Game Setup)</button>
       <div class="divider">أو (OR)</div>
-      <input type="text" id="room-code-input" placeholder="أدخل رمز الغرفة (مثل X7K9)" style="text-transform: uppercase;">
+      <input type="text" id="room-code-input" placeholder="أدخل رمز الغرفة (6 خانات مثل X7K9M2)" style="text-transform: uppercase;" maxlength="6">
       <button id="join-room-btn" class="btn success">🎮 انضمام للغرفة (Join Room)</button>
     </section>
 
@@ -62,34 +65,34 @@
       <label>الحد الأقصى للاعبين:</label>
       <input type="number" id="max-players-input" value="10" min="2" max="50">
 
-      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 10px;">
         <input type="checkbox" id="voice-chat-toggle"> تفعيل الدردشة الصوتية (Voice Chat Option)
       </label>
 
-      <button id="confirm-host-btn" class="btn success">🚀 إنشاء غرفة الانتظار (Create Lobby)</button>
-      <button id="cancel-host-btn" class="btn secondary">إلغاء</button>
+      <button id="confirm-host-btn" class="btn success" style="margin-top: 15px;">🚀 إنشاء غرفة الانتظار (Create Lobby)</button>
+      <button id="cancel-host-btn" class="btn secondary" style="margin-top: 8px;">إلغاء</button>
     </section>
 
-    <!-- Waiting Lobby / Game Arena -->
+    <!-- Waiting Lobby & Active Game Arena -->
     <section id="game-screen" class="card hidden">
-      <div class="room-header">
-        <span id="display-room-code">Room: ----</span>
-        <span id="role-badge">Player</span>
+      <div class="room-header" style="display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold;">
+        <span id="display-room-code" style="color: #38bdf8;">Room: ------</span>
+        <span id="role-badge" style="background: #334155; padding: 2px 8px; border-radius: 4px;">Player</span>
       </div>
 
       <!-- Waiting Lobby Roster (Visible before host starts) -->
-      <div id="waiting-lobby" class="card" style="background: #0f172a; border: 1px solid #334155;">
+      <div id="waiting-lobby" class="card" style="background: #0f172a; border: 1px solid #334155; margin-bottom: 0;">
         <h3>👥 غرفة الانتظار (Waiting Lobby)</h3>
-        <ul id="players-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;"></ul>
-        <button id="start-game-btn" class="btn primary hidden" style="margin-top: 10px;">🎮 ابدأ اللعبة الآن (Start Game)</button>
+        <ul id="players-list" style="list-style: none; padding: 0; margin: 10px 0; display: flex; flex-direction: column; gap: 8px;"></ul>
+        <button id="start-game-btn" class="btn primary hidden" style="margin-top: 10px; width: 100%;">🎮 ابدأ اللعبة الآن (Start Game)</button>
       </div>
 
-      <!-- Active Game Board (Hidden until host starts) -->
+      <!-- Active Game Board (Hidden until host clicks Start Game) -->
       <div id="active-game-container" class="hidden">
-        <div id="status-banner" class="banner">في انتظار بدء اللعبة...</div>
-        <div id="letter-grid" class="grid"></div>
-        <button id="buzzer-btn" class="buzzer hidden">🔔 اضغط للجرس! (BUZZ)</button>
-        <button id="reset-buzzer-btn" class="btn secondary hidden">🔄 تصفير الجرس (Host Reset)</button>
+        <div id="status-banner" class="banner" style="margin-bottom: 15px; padding: 10px; text-align: center; border: 1px solid #334155; border-radius: 6px;">اختر حرفاً من اللوحة للبدء!</div>
+        <div id="letter-grid" class="grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 15px;"></div>
+        <button id="buzzer-btn" class="buzzer hidden" style="width: 100%; padding: 15px; font-size: 1.2rem; background: #ef4444; color: white; border: none; border-radius: 8px;">🔔 اضغط للجرس! (BUZZ)</button>
+        <button id="reset-buzzer-btn" class="btn secondary hidden" style="width: 100%; margin-top: 10px;">🔄 تصفير الجرس (Host Reset)</button>
       </div>
     </section>
 
@@ -98,6 +101,6 @@
     </footer>
   </div>
 
-  <script type="module" src="app.js?v=99"></script>
+  <script type="module" src="app.js?v=100"></script>
 </body>
 </html>
