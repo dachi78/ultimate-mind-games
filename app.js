@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, setPersistence, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
 import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -22,31 +22,36 @@ let isHost = false;
 
 const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
 
-// 1. Login Handlers
+// 1. Save Account Mechanic: Set Local Persistence & Auto-Restore Session
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.error("Persistence setup error:", err);
+});
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+    const name = user.displayName || "Guest-" + user.uid.slice(0, 4);
+    const avatar = user.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
+
+    document.getElementById("profile-name").innerText = name;
+    document.getElementById("user-avatar").src = avatar;
+    document.getElementById("user-profile-bar").classList.remove("hidden");
+
+    document.getElementById("auth-screen").classList.add("hidden");
+    document.getElementById("lobby-screen").classList.remove("hidden");
+  }
+});
+
+// 2. Login Handlers
 document.getElementById("google-login-btn").onclick = () => {
   signInWithPopup(auth, new GoogleAuthProvider())
-    .then(onLogin)
     .catch((err) => alert("Google Login Error: " + err.message));
 };
 
 document.getElementById("guest-login-btn").onclick = () => {
   signInAnonymously(auth)
-    .then(onLogin)
     .catch((err) => alert("Guest Login Error: " + err.message));
 };
-
-function onLogin(res) {
-  currentUser = res.user;
-  const name = currentUser.displayName || "Guest-" + currentUser.uid.slice(0, 4);
-  const avatar = currentUser.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
-
-  document.getElementById("profile-name").innerText = name;
-  document.getElementById("user-avatar").src = avatar;
-  document.getElementById("user-profile-bar").classList.remove("hidden");
-
-  document.getElementById("auth-screen").classList.add("hidden");
-  document.getElementById("lobby-screen").classList.remove("hidden");
-}
 
 // Host Setup Navigation
 document.getElementById("open-host-setup-btn").onclick = () => {
