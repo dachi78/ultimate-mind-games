@@ -2,14 +2,19 @@ import { ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/13
 
 export function initChessGame(db, code, isHost, currentUser) {
   const container = document.getElementById("active-game-container");
+  
   container.innerHTML = `
-    <div style="text-align: center; margin-bottom: 12px;">
-      <h3 style="color: #38bdf8; margin: 0 0 5px 0;">♔ لعبة الشطرنج ♚</h3>
-      <div id="chess-status" style="font-size: 0.95rem; color: #facc15; font-weight: bold;">جاري الاتصال بالطاولة...</div>
-    </div>
-    <div id="chess-board" style="display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: 380px; aspect-ratio: 1/1; margin: 0 auto; border: 4px solid #334155; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);"></div>
-    <div style="text-align: center; margin-top: 15px;">
-      <button id="reset-chess-btn" class="btn secondary" style="background: #475569; width: 100%; max-width: 380px;">🔄 إعادة تشغيل الطاولة</button>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 100%; max-width: 480px; margin: 0 auto; padding: 4px; box-sizing: border-box;">
+      <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
+        <div id="chess-status" style="font-size: 0.9rem; color: #facc15; font-weight: bold; text-align: right; flex: 1;">جاري الاتصال بالطاولة...</div>
+        <button id="quit-chess-btn" class="btn secondary" style="background: #ef4444; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; cursor: pointer; border: none; margin-left: 10px;">🚪 مغادرة اللعبة</button>
+      </div>
+      
+      <div id="chess-board" style="display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: min(94vw, 400px); aspect-ratio: 1/1; border: 3px solid #334155; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.6); background: #1e293b;"></div>
+      
+      <div style="width: 100%; max-width: min(94vw, 400px); margin-top: 12px; display: flex; gap: 10px;">
+        <button id="reset-chess-btn" class="btn secondary" style="background: #475569; flex: 1; padding: 8px; font-size: 0.85rem; border-radius: 8px;">🔄 إعادة تشغيل اللعبة</button>
+      </div>
     </div>
   `;
 
@@ -61,11 +66,26 @@ export function initChessGame(db, code, isHost, currentUser) {
   function renderBoard(state) {
     boardEl.innerHTML = "";
     const board = state.board || initialBoard;
-    const isMyTurn = (state.turn === 'white' && state.whitePlayer === currentUser.uid) ||
-                     (state.turn === 'black' && state.blackPlayer === currentUser.uid);
+    
+    // When no guest/black player is joined yet, allow solo play as both white and black
+    const isSolo = !state.blackPlayer || state.whitePlayer === state.blackPlayer;
+    
+    let isMyTurn = false;
+    if (isSolo) {
+      isMyTurn = true; // Solo mode: user can play both sides
+    } else {
+      const amIWhite = state.whitePlayer === currentUser.uid;
+      const amIBlack = state.blackPlayer === currentUser.uid;
+      isMyTurn = (state.turn === 'white' && amIWhite) || (state.turn === 'black' && amIBlack);
+    }
 
-    statusEl.innerText = state.winner ? `🏆 انتهت اللعبة! الفائز: ${state.winner}` : 
-                         (isMyTurn ? "🎯 دورك للعب (Your Turn)" : `⏳ دور الخصم (${state.turn === 'white' ? 'الأبيض' : 'الأسود'})`);
+    if (state.winner) {
+      statusEl.innerText = `🏆 انتهت اللعبة! الفائز: ${state.winner}`;
+    } else if (isSolo) {
+      statusEl.innerText = `🎮 وضع اللعب الفردي (القطع الـ${state.turn === 'white' ? 'بيضاء ⚪' : 'سوداء ⚫'})`;
+    } else {
+      statusEl.innerText = isMyTurn ? "🎯 دورك للعب (Your Turn)" : `⏳ دور الخصم (${state.turn === 'white' ? 'الأبيض' : 'الأسود'})`;
+    }
 
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
@@ -75,19 +95,22 @@ export function initChessGame(db, code, isHost, currentUser) {
         square.style.display = "flex";
         square.style.alignItems = "center";
         square.style.justifyContent = "center";
-        square.style.fontSize = "2rem";
+        square.style.fontSize = "min(8.5vw, 2.1rem)";
         square.style.cursor = "pointer";
         square.style.userSelect = "none";
+        square.style.aspectRatio = "1/1";
 
         const piece = board[r][c];
         if (piece) {
           square.innerText = pieceSymbols[piece] || piece;
           square.style.color = piece === piece.toUpperCase() ? "#ffffff" : "#0f172a";
+          square.style.textShadow = piece === piece.toUpperCase() ? "0 1px 3px rgba(0,0,0,0.8)" : "0 1px 2px rgba(255,255,255,0.4)";
         }
 
         if (selectedSquare && selectedSquare.r === r && selectedSquare.c === c) {
           square.style.outline = "3px solid #38bdf8";
           square.style.outlineOffset = "-3px";
+          square.style.zIndex = "10";
         }
 
         square.onclick = () => {
@@ -100,10 +123,19 @@ export function initChessGame(db, code, isHost, currentUser) {
           if (!selectedSquare) {
             if (!piece) return;
             const isWhitePiece = piece === piece.toUpperCase();
-            if ((state.turn === 'white' && !isWhitePiece) || (state.turn === 'black' && isWhitePiece)) {
-              alert("هذه قطعتك الخاصة باللون الآخر!");
-              return;
+            
+            if (isSolo) {
+              if ((state.turn === 'white' && !isWhitePiece) || (state.turn === 'black' && isWhitePiece)) {
+                alert(`الدور الحالي للقطع الـ${state.turn === 'white' ? 'بيضاء' : 'سوداء'}!`);
+                return;
+              }
+            } else {
+              if ((state.turn === 'white' && !isWhitePiece) || (state.turn === 'black' && isWhitePiece)) {
+                alert("هذه قطعتك الخاصة باللون الآخر!");
+                return;
+              }
             }
+
             selectedSquare = { r, c };
             renderBoard(state);
           } else {
@@ -135,7 +167,6 @@ export function initChessGame(db, code, isHost, currentUser) {
   const resetBtn = document.getElementById("reset-chess-btn");
   if (resetBtn) {
     resetBtn.onclick = () => {
-      if (!isHost) return alert("المضيف فقط يمكنه إعادة التشغيل");
       set(roomRef, {
         board: initialBoard,
         turn: 'white',
@@ -145,4 +176,12 @@ export function initChessGame(db, code, isHost, currentUser) {
       });
     };
   }
+
+  const quitChessBtn = document.getElementById("quit-chess-btn");
+  if (quitChessBtn) {
+    quitChessBtn.onclick = () => {
+      document.getElementById("quit-room-btn").click();
+    };
+  }
 }
+```[cite: 4]
