@@ -22,7 +22,9 @@ let currentRoom = null;
 let isHost = false;
 let uploadedAvatarBase64 = null;
 
-const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
+// Chess Engine variables
+let chessGame = new Chess();
+let selectedSquare = null;
 
 // Set Persistence & Listen for Auth State Changes
 setPersistence(auth, browserLocalPersistence).catch((err) => {
@@ -35,7 +37,6 @@ onAuthStateChanged(auth, async (user) => {
     const defaultName = user.displayName || "Guest-" + user.uid.slice(0, 4);
     const defaultAvatar = user.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
 
-    // Check Realtime Database for custom saved name/avatar
     try {
       const snap = await get(ref(db, `users/${user.uid}`));
       if (snap.exists()) {
@@ -96,7 +97,7 @@ document.getElementById("guest-login-btn").onclick = () => {
     .catch((err) => alert("Guest Login Error: " + err.message));
 };
 
-// Logout Handler with cleanup
+// Logout Handler
 document.getElementById("logout-btn").onclick = () => {
   if (currentRoom) {
     remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
@@ -112,10 +113,10 @@ document.getElementById("close-friends-btn").onclick = () => {
   document.getElementById("friends-modal").classList.add("hidden");
 };
 document.getElementById("settings-menu-btn").onclick = () => {
-  alert("قريباً: إعدادات الصوت، والوضع الليلي المتقدم، وتخصيص اللعبة!");
+  alert("قريباً: إعدادات الصوت والوضع الليلي!");
 };
 
-// Profile Customization Modal & Image Compression Handler
+// Profile Customization Modal
 document.getElementById("edit-profile-menu-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.remove("hidden");
   document.getElementById("new-username-input").value = currentProfile.name;
@@ -126,7 +127,6 @@ document.getElementById("cancel-profile-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.add("hidden");
 };
 
-// Compress uploaded image to 96x96 JPEG so it stores cleanly in Firebase RTDB
 document.getElementById("avatar-file-input").onchange = (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -155,10 +155,7 @@ document.getElementById("save-profile-btn").onclick = async () => {
   const finalAvatar = uploadedAvatarBase64 || currentProfile.avatar;
 
   try {
-    // Save name to Firebase Auth (short string, no URL limit issue)
     await updateProfile(currentUser, { displayName: newName });
-
-    // Save both name and compressed avatar to Realtime Database
     currentProfile = { name: newName, avatar: finalAvatar };
     await set(ref(db, `users/${currentUser.uid}`), currentProfile);
 
@@ -189,7 +186,6 @@ document.getElementById("cancel-host-btn").onclick = () => {
   document.getElementById("lobby-screen").classList.remove("hidden");
 };
 
-// Generate 6-Digit Alphanumeric Room Code
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -202,20 +198,18 @@ function generateRoomCode() {
 // Confirm Host Setup & Create Room
 document.getElementById("confirm-host-btn").onclick = () => {
   const code = generateRoomCode();
-  const gameMode = document.getElementById("game-mode-select").value;
-  const maxPlayers = document.getElementById("max-players-input").value;
   const voiceChat = document.getElementById("voice-chat-toggle").checked;
 
   isHost = true;
+  chessGame.reset();
+
   set(ref(db, `rooms/${code}`), {
-    gameMode,
-    maxPlayers,
+    gameMode: "chess",
+    maxPlayers: 2,
     voiceChat,
     status: "waiting",
     hostUid: currentUser.uid,
-    activeLetter: "",
-    claimedLetters: {},
-    buzzerWinner: ""
+    chessFEN: chessGame.fen()
   });
 
   enterRoom(code);
@@ -235,21 +229,19 @@ function enterRoom(code) {
   document.getElementById("host-setup-screen").classList.add("hidden");
   document.getElementById("game-screen").classList.remove("hidden");
   document.getElementById("display-room-code").innerText = `Room: ${code}`;
-  document.getElementById("role-badge").innerText = isHost ? "🎙️ Host" : "🎮 Player";
+  document.getElementById("role-badge").innerText = isHost ? "🎙️ Host (White)" : "🎮 Player (Black)";
 
   const playerRef = ref(db, `rooms/${code}/players/${currentUser.uid}`);
   set(playerRef, {
     name: currentProfile.name,
     photoURL: currentProfile.avatar,
-    role: isHost ? "host" : "player"
+    role: isHost ? "host" : "player",
+    color: isHost ? "white" : "black"
   });
   onDisconnect(playerRef).remove();
 
   if (isHost) {
     document.getElementById("start-game-btn").classList.remove("hidden");
-    document.getElementById("reset-buzzer-btn").classList.remove("hidden");
-  } else {
-    document.getElementById("buzzer-btn").classList.remove("hidden");
   }
 
   onValue(ref(db, `rooms/${code}`), (snap) => {
@@ -262,20 +254,7 @@ function enterRoom(code) {
       Object.entries(data.players).forEach(([uid, p]) => {
         const li = document.createElement("li");
         li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
-        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role})</span>`;
-        
-        if (isHost && uid !== currentUser.uid) {
-          const adminBtn = document.createElement("button");
-          adminBtn.innerText = p.role === "admin" ? "إلغاء مشرف" : "ترقية مشرف";
-          adminBtn.className = "btn secondary";
-          adminBtn.style.padding = "4px 8px";
-          adminBtn.style.fontSize = "0.75rem";
-          adminBtn.style.marginLeft = "auto";
-          adminBtn.onclick = () => {
-            update(ref(db, `rooms/${code}/players/${uid}`), { role: p.role === "admin" ? "player" : "admin" });
-          };
-          li.appendChild(adminBtn);
-        }
+        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role === 'host' ? 'Host - White' : 'Player - Black'})</span>`;
         rosterList.appendChild(li);
       });
     }
@@ -284,21 +263,128 @@ function enterRoom(code) {
       document.getElementById("waiting-lobby").classList.add("hidden");
       document.getElementById("active-game-container").classList.remove("hidden");
 
-      renderGrid(data.activeLetter, data.claimedLetters || {});
-      const banner = document.getElementById("status-banner");
-      if (data.buzzerWinner) {
-        banner.innerText = `🔔 أسرع إجابة: ${data.buzzerWinner}!`;
-        banner.style.borderColor = "#ef4444";
-      } else if (data.activeLetter) {
-        banner.innerText = `الحرف المختار: [ ${data.activeLetter} ]`;
-        banner.style.borderColor = "#f59e0b";
-      } else {
-        banner.innerText = "اختر حرفاً من اللوحة للبدء!";
-        banner.style.borderColor = "#334155";
+      if (data.chessFEN) {
+        chessGame.load(data.chessFEN);
+        renderChessBoard();
+      }
+
+      if (isHost) {
+        document.getElementById("reset-chess-btn").classList.remove("hidden");
       }
     }
   });
 }
+
+// Render Chess Board UI
+function renderChessBoard() {
+  const boardEl = document.getElementById("chess-board");
+  boardEl.innerHTML = "";
+  boardEl.style.cssText = "display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: 380px; aspect-ratio: 1/1; margin: 0 auto; border: 3px solid #334155; border-radius: 6px; user-select: none;";
+
+  const board = chessGame.board();
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const squareEl = document.createElement("div");
+      const isDark = (r + c) % 2 === 1;
+      const file = 'abcdefgh'[c];
+      const rank = '87654321'[r];
+      const squareName = file + rank;
+
+      squareEl.style.cssText = `
+        background: ${isDark ? '#b58863' : '#f0d9b5'};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2rem;
+        cursor: pointer;
+        position: relative;
+      `;
+
+      const piece = board[r][c];
+      if (piece) {
+        const symbols = {
+          p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
+          P: '♙', R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔'
+        };
+        squareEl.innerText = symbols[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
+        squareEl.style.color = piece.color === 'w' ? '#ffffff' : '#0f172a';
+        squareEl.style.textShadow = piece.color === 'w' ? '0 1px 3px rgba(0,0,0,0.9)' : '0 1px 2px rgba(255,255,255,0.4)';
+      }
+
+      if (selectedSquare === squareName) {
+        squareEl.style.outline = '3px solid #38bdf8';
+        squareEl.style.outlineOffset = '-3px';
+        squareEl.style.background = '#769656';
+      }
+
+      squareEl.onclick = () => handleSquareClick(squareName);
+      boardEl.appendChild(squareEl);
+    }
+  }
+
+  const statusEl = document.getElementById("chess-status");
+  if (chessGame.in_checkmate()) {
+    statusEl.innerText = `🏁 انتهت اللعبة: مات الملك (Checkmate)!`;
+    statusEl.style.borderColor = "#ef4444";
+  } else if (chessGame.in_draw()) {
+    statusEl.innerText = `🤝 انتهت اللعبة بالتعادل (Draw)!`;
+    statusEl.style.borderColor = "#f59e0b";
+  } else {
+    const turnName = chessGame.turn() === 'w' ? 'الأبيض (White)' : 'الأسود (Black)';
+    statusEl.innerText = `دور اللاعب: ${turnName} ${chessGame.in_check() ? '⚠️ (تحذير كيش!)' : ''}`;
+    statusEl.style.borderColor = "#334155";
+  }
+}
+
+// Handle Square Clicks & Moves
+function handleSquareClick(square) {
+  const myColor = isHost ? 'w' : 'b';
+  if (chessGame.turn() !== myColor) {
+    return; // Not your turn
+  }
+
+  if (!selectedSquare) {
+    const piece = chessGame.get(square);
+    if (piece && piece.color === myColor) {
+      selectedSquare = square;
+      renderChessBoard();
+    }
+  } else {
+    const move = chessGame.move({
+      from: selectedSquare,
+      to: square,
+      promotion: 'q' // Auto promote to Queen
+    });
+
+    selectedSquare = null;
+    if (move) {
+      update(ref(db, `rooms/${currentRoom}`), {
+        chessFEN: chessGame.fen()
+      });
+    } else {
+      const piece = chessGame.get(square);
+      if (piece && piece.color === myColor) {
+        selectedSquare = square;
+      }
+      renderChessBoard();
+    }
+  }
+}
+
+// Host Starts the Game
+document.getElementById("start-game-btn").onclick = () => {
+  if (!isHost) return;
+  update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
+};
+
+// Reset Game Board (Host only)
+document.getElementById("reset-chess-btn").onclick = () => {
+  if (!isHost) return;
+  chessGame.reset();
+  update(ref(db, `rooms/${currentRoom}`), {
+    chessFEN: chessGame.fen()
+  });
+};
 
 // Quit Room Handler
 document.getElementById("quit-room-btn").onclick = () => {
@@ -310,54 +396,6 @@ document.getElementById("quit-room-btn").onclick = () => {
   document.getElementById("active-game-container").classList.add("hidden");
   document.getElementById("waiting-lobby").classList.remove("hidden");
   document.getElementById("start-game-btn").classList.add("hidden");
-  document.getElementById("buzzer-btn").classList.add("hidden");
-  document.getElementById("reset-buzzer-btn").classList.add("hidden");
+  document.getElementById("reset-chess-btn").classList.add("hidden");
   document.getElementById("lobby-screen").classList.remove("hidden");
-};
-
-// Host Starts the Game
-document.getElementById("start-game-btn").onclick = () => {
-  if (!isHost) return;
-  update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
-};
-
-// Horouf Letter Grid Render & Interaction
-function renderGrid(activeLetter, claimedLetters) {
-  const grid = document.getElementById("letter-grid");
-  grid.innerHTML = "";
-  letters.forEach(letter => {
-    const btn = document.createElement("button");
-    btn.className = "letter-tile";
-    if (claimedLetters && claimedLetters[letter]) {
-      btn.classList.add("claimed");
-    } else if (letter === activeLetter) {
-      btn.classList.add("active");
-    }
-    btn.innerText = letter;
-
-    btn.onclick = () => {
-      if (!isHost) return;
-      if (activeLetter === letter) {
-        update(ref(db, `rooms/${currentRoom}/claimedLetters`), { [letter]: true });
-        update(ref(db, `rooms/${currentRoom}`), { activeLetter: "", buzzerWinner: "" });
-      } else {
-        update(ref(db, `rooms/${currentRoom}`), { activeLetter: letter, buzzerWinner: "" });
-      }
-    };
-    grid.appendChild(btn);
-  });
-}
-
-// Buzzer Handlers
-document.getElementById("buzzer-btn").onclick = () => {
-  const name = currentProfile.name;
-  onValue(ref(db, `rooms/${currentRoom}/buzzerWinner`), (snap) => {
-    if (!snap.val()) {
-      update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: name });
-    }
-  }, { onlyOnce: true });
-};
-
-document.getElementById("reset-buzzer-btn").onclick = () => {
-  update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: "" });
 };
