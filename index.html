@@ -6,7 +6,6 @@
   <title>Ultimate Mind Games | شطرنج</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* Mobile Fixed Navigation Bar */
     .top-nav {
       position: fixed;
       top: 0;
@@ -22,7 +21,7 @@
       padding: 0 16px;
       z-index: 1000;
       box-sizing: border-box;
-      direction: ltr; /* Keep top-left avatar and top-right menu strictly fixed */
+      direction: ltr; /* Keeps avatar left and menu right */
     }
     .profile-info {
       display: flex;
@@ -40,12 +39,12 @@
       font-weight: bold;
       color: #38bdf8;
       font-size: 0.9rem;
-      max-width: 120px;
+      max-width: 130px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      direction: rtl;
     }
-    /* Dropdown Menu Aligned to Top-Right */
     .menu-container {
       position: relative;
     }
@@ -54,15 +53,16 @@
       position: absolute;
       right: 0;
       left: auto;
-      top: 46px;
+      top: 48px;
       background: #1e293b;
-      min-width: 195px;
+      min-width: 200px;
       box-shadow: 0px 8px 20px rgba(0,0,0,0.6);
       border: 1px solid #334155;
       border-radius: 8px;
       z-index: 2000;
       flex-direction: column;
       overflow: hidden;
+      direction: rtl;
     }
     .dropdown-content.show {
       display: flex;
@@ -85,144 +85,176 @@
       background: #334155;
     }
     body {
-      padding-top: 70px;
+      padding-top: 75px;
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      direction: rtl;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 15px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .hidden {
+      display: none !important;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 10px;
+    }
+    .btn.primary { background: #3b82f6; color: white; }
+    .btn.success { background: #10b981; color: white; }
+    .btn.secondary { background: #475569; color: white; }
+    .btn.google { background: #db4437; color: white; }
+    .input-field {
+      width: 100%;
+      padding: 10px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: white;
+      border-radius: 6px;
+      box-sizing: border-box;
+      margin-top: 6px;
+      margin-bottom: 12px;
+      font-size: 1rem;
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 4000;
+    }
+    .modal-box {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .divider {
+      text-align: center;
+      margin: 15px 0;
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+    footer {
+      text-align: center;
+      color: #64748b;
+      font-size: 0.8rem;
+      margin-top: 30px;
     }
   </style>
 </head>
 <body>
-  <!-- Salah Auto-Pause Overlay -->
-  <div id="salah-overlay" class="overlay hidden">
-    <div class="modal-box">
-      <h2>🕌 وقت الصلاة (Prayer Break)</h2>
-      <p id="salah-text">اللعبة متوقفة مؤقتاً لأداء الصلاة. تقبل الله!</p>
-      <button id="resume-salah-btn" class="btn primary">استئناف اللعب (Resume)</button>
-    </div>
-  </div>
-
   <!-- Fixed Top Navigation Bar -->
   <div id="user-profile-bar" class="top-nav hidden">
-    <!-- Top-Left: Avatar & Name -->
     <div class="profile-info">
       <img id="user-avatar" src="" alt="Avatar">
       <span id="profile-name" class="profile-name"></span>
     </div>
-
-    <!-- Top-Right: Hamburger Menu -->
     <div class="menu-container">
-      <button id="menu-toggle-btn" class="btn secondary" style="padding: 6px 12px; font-size: 1rem; background: #334155; color: #fff; border: none; border-radius: 6px; cursor: pointer;">☰ القائمة</button>
+      <button id="menu-toggle-btn" class="btn secondary" style="margin: 0; padding: 6px 14px; font-size: 1rem; background: #334155; color: #fff; border-radius: 6px; cursor: pointer;">☰ القائمة</button>
       <div id="dropdown-menu" class="dropdown-content">
         <button id="edit-profile-menu-btn">✏️ تعديل الملف الشخصي</button>
-        <button id="friends-menu-btn">👥 الأصدقاء (الطلبات والرسائل)</button>
+        <button id="friends-menu-btn">👥 الأصدقاء</button>
         <button id="settings-menu-btn">⚙️ الإعدادات</button>
         <button id="logout-btn" style="color: #ef4444;">🚪 تسجيل خروج</button>
       </div>
     </div>
   </div>
 
-  <!-- Edit Profile Modal (Supports Image Upload) -->
-  <div id="edit-profile-modal" class="overlay hidden" style="z-index: 3000;">
+  <!-- Edit Profile Modal -->
+  <div id="edit-profile-modal" class="overlay hidden">
     <div class="modal-box" style="width: 90%; max-width: 350px;">
       <h3>تعديل الملف الشخصي</h3>
       <label style="font-size: 0.85rem; margin-top: 10px; display: block; text-align: right;">اسم المستخدم الجديد:</label>
       <input type="text" id="new-username-input" class="input-field" placeholder="أدخل اسمك الجديد">
-      
-      <label style="font-size: 0.85rem; margin-top: 10px; display: block; text-align: right;">رفع صورة شخصية من الجهاز:</label>
+      <label style="font-size: 0.85rem; margin-top: 10px; display: block; text-align: right;">رفع صورة شخصية:</label>
       <input type="file" id="avatar-file-input" accept="image/*" class="input-field" style="padding: 6px; background: #0f172a; color: #fff;">
-      
       <div style="display: flex; gap: 10px; margin-top: 15px;">
-        <button id="save-profile-btn" class="btn success" style="flex: 1;">حفظ</button>
-        <button id="cancel-profile-btn" class="btn secondary" style="flex: 1;">إلغاء</button>
+        <button id="save-profile-btn" class="btn success" style="margin:0; flex: 1;">حفظ</button>
+        <button id="cancel-profile-btn" class="btn secondary" style="margin:0; flex: 1;">إلغاء</button>
       </div>
     </div>
   </div>
 
-  <!-- Friends Modal Placeholder -->
-  <div id="friends-modal" class="overlay hidden" style="z-index: 3000;">
+  <!-- Friends Modal -->
+  <div id="friends-modal" class="overlay hidden">
     <div class="modal-box" style="width: 90%; max-width: 350px; text-align: center;">
       <h3>👥 قائمة الأصدقاء</h3>
-      <p style="color: #94a3b8; font-size: 0.9rem; margin: 15px 0;">لا توجد طلبات صداقة معلقة حالياً. سيتم تفعيل نظام المراسلة قريباً!</p>
-      <button id="close-friends-btn" class="btn primary" style="width: 100%;">إغلاق</button>
+      <p style="color: #94a3b8; font-size: 0.9rem; margin: 15px 0;">لا توجد طلبات صداقة معلقة حالياً.</p>
+      <button id="close-friends-btn" class="btn primary" style="margin: 0; width: 100%;">إغلاق</button>
     </div>
   </div>
 
   <div class="container">
-    <header>
+    <header id="main-header" style="text-align: center; margin-bottom: 20px;">
       <h1>🧠 Ultimate Mind Games</h1>
-      <label class="salah-toggle">
-        <input type="checkbox" id="muslim-mode-checkbox">
-        <span>🕌 تفعيل التوقف التلقائي للصلاة (Auto-Pause for Salah)</span>
-      </label>
     </header>
 
-    <!-- 1. Login Screen -->
     <section id="auth-screen" class="card">
-      <h2>تسجيل الدخول للبدء</h2>
-      <button id="google-login-btn" class="btn google">Login</button>
+      <h2 style="margin-top: 0; text-align: center;">تسجيل الدخول للبدء</h2>
+      <button id="google-login-btn" class="btn google">Login with Google</button>
       <button id="guest-login-btn" class="btn secondary">العب كضيف (Play as Guest)</button>
-      <p style="margin-top: 14px; font-size: 0.85rem; color: #94a3b8; text-align: center; line-height: 1.5;">
-        Sign-in if you don't already have an account
-      </p>
     </section>
 
-    <!-- 2. Main Lobby / Menu -->
     <section id="lobby-screen" class="card hidden">
       <button id="open-host-setup-btn" class="btn primary">🎙️ إنشاء غرفة جديدة (Host Game Setup)</button>
       <div class="divider">أو (OR)</div>
-      <input type="text" id="room-code-input" placeholder="أدخل رمز الغرفة (6 خانات مثل X7K9M2)" style="text-transform: uppercase;" maxlength="6">
+      <input type="text" id="room-code-input" class="input-field" placeholder="أدخل رمز الغرفة (6 خانات)" style="text-transform: uppercase; text-align: center;" maxlength="6">
       <button id="join-room-btn" class="btn success">🎮 انضمام للغرفة (Join Room)</button>
     </section>
 
-    <!-- Host Configuration Modal/Screen -->
     <section id="host-setup-screen" class="card hidden">
-      <h2>إعدادات غرفة المضيف</h2>
-      <label>اختر وضع اللعبة (Game Mode):</label>
+      <h2 style="margin-top: 0;">إعدادات غرفة المضيف</h2>
+      <label>اختر وضع اللعبة:</label>
       <select id="game-mode-select" class="input-field">
-  <option value="chess">شطرنج (Chess)</option>
-</select>
-
-      <label>الحد الأقصى للاعبين:</label>
-      <input type="number" id="max-players-input" value="10" min="2" max="50">
-
-      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 10px;">
-        <input type="checkbox" id="voice-chat-toggle"> تفعيل الدردشة الصوتية (Voice Chat Option)
-      </label>
-
-      <button id="confirm-host-btn" class="btn success" style="margin-top: 15px;">🚀 إنشاء غرفة الانتظار (Create Lobby)</button>
+        <option value="chess">شطرنج (Chess)</option>
+      </select>
+      <button id="confirm-host-btn" class="btn success" style="margin-top: 20px;">🚀 إنشاء غرفة الانتظار</button>
       <button id="cancel-host-btn" class="btn secondary" style="margin-top: 8px;">إلغاء</button>
     </section>
 
-    <!-- Waiting Lobby & Active Game Arena -->
-    <section id="game-screen" class="card hidden">
-      <div class="room-header" style="display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold;">
-        <span id="display-room-code" style="color: #38bdf8;">Room: ------</span>
-        <span id="role-badge" style="background: #334155; padding: 2px 8px; border-radius: 4px;">Player</span>
-      </div>
-
-      <!-- Waiting Lobby Roster (Visible before host starts) -->
-      <div id="waiting-lobby" class="card" style="background: #0f172a; border: 1px solid #334155; margin-bottom: 0;">
+    <section id="game-screen" class="card hidden" style="background: transparent; border: none; padding: 0; box-shadow: none;">
+      <div id="waiting-lobby" class="card">
         <h3>👥 غرفة الانتظار (Waiting Lobby)</h3>
+        <div id="display-room-code" style="color: #38bdf8; font-weight: bold; margin-bottom: 10px;">Room: ------</div>
         <ul id="players-list" style="list-style: none; padding: 0; margin: 10px 0; display: flex; flex-direction: column; gap: 8px;"></ul>
-        <button id="start-game-btn" class="btn primary hidden" style="margin-top: 10px; width: 100%;">🎮 ابدأ اللعبة الآن (Start Game)</button>
+        <button id="start-game-btn" class="btn primary hidden" style="margin-top: 15px;">🎮 ابدأ اللعبة الآن (Start Game)</button>
+        <button id="quit-room-btn" class="btn secondary" style="margin-top: 10px; background: #475569;">🚪 مغادرة الغرفة</button>
       </div>
 
-      <!-- Active Game Board (Hidden until host clicks Start Game) -->
-      <div id="active-game-container" class="hidden">
-        <div id="status-banner" class="banner" style="margin-bottom: 15px; padding: 10px; text-align: center; border: 1px solid #334155; border-radius: 6px;">اختر حرفاً من اللوحة للبدء!</div>
-        <div id="letter-grid" class="grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 15px;"></div>
-        <button id="buzzer-btn" class="buzzer hidden" style="width: 100%; padding: 15px; font-size: 1.2rem; background: #ef4444; color: white; border: none; border-radius: 8px;">🔔 اضغط للجرس! (BUZZ)</button>
-        <button id="reset-buzzer-btn" class="btn secondary hidden" style="width: 100%; margin-top: 10px;">🔄 تصفير الجرس (Host Reset)</button>
-      </div>
-
-      <!-- Quit Room Button -->
-      <button id="quit-room-btn" class="btn secondary" style="margin-top: 15px; width: 100%; background: #475569;">🚪 مغادرة الغرفة (Quit Room)</button>
+      <div id="active-game-container" class="hidden"></div>
     </section>
 
     <footer>
-      <small>Free-to-play platform. Prizes are independently provided by room hosts.</small>
+      <small>Free-to-play platform. Ultimate Mind Games.</small>
     </footer>
   </div>
 
-  <script type="module" src="app.js?v=106"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
-```[cite: 2, 3]
