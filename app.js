@@ -252,7 +252,6 @@ function enterRoom(code) {
     }
 
     if (data.status === "playing") {
-      // إخفاء القوائم بالكامل والانتقال لملء الشاشة
       document.getElementById("game-screen").classList.add("hidden");
       document.getElementById("user-profile-bar").classList.add("hidden");
       document.getElementById("active-game-screen").classList.remove("hidden");
@@ -286,12 +285,10 @@ document.getElementById("start-game-btn").onclick = () => {
   update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
 };
 
-// Quit Room from Waiting Lobby
 document.getElementById("quit-room-btn").onclick = () => {
   quitCurrentRoom();
 };
 
-// Quit Room from Active Full-Screen Game
 document.getElementById("in-game-quit-btn").onclick = () => {
   quitCurrentRoom();
 };
