@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, setPersistence, browserLocalPersistence, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
 import { getDatabase, ref, set, update, onValue, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
+import { createChessGame } from "./games/chess.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDh02-Eb7qpWavevk9xrt3h0Jbwb5vI8s",
@@ -21,10 +22,7 @@ let currentProfile = { name: "", avatar: "" };
 let currentRoom = null;
 let isHost = false;
 let uploadedAvatarBase64 = null;
-
-// Chess Engine variables
-let chessGame = new Chess();
-let selectedSquare = null;
+let chessGameInstance = null;
 
 // Set Persistence & Listen for Auth State Changes
 setPersistence(auth, browserLocalPersistence).catch((err) => {
@@ -105,7 +103,6 @@ document.getElementById("logout-btn").onclick = () => {
   signOut(auth).catch((err) => alert("Logout Error: " + err.message));
 };
 
-// Friends & Settings Handlers
 document.getElementById("friends-menu-btn").onclick = () => {
   document.getElementById("friends-modal").classList.remove("hidden");
 };
@@ -201,7 +198,8 @@ document.getElementById("confirm-host-btn").onclick = () => {
   const voiceChat = document.getElementById("voice-chat-toggle").checked;
 
   isHost = true;
-  chessGame.reset();
+  const initialChess = new Chess();
+  initialChess.reset();
 
   set(ref(db, `rooms/${code}`), {
     gameMode: "chess",
@@ -209,7 +207,7 @@ document.getElementById("confirm-host-btn").onclick = () => {
     voiceChat,
     status: "waiting",
     hostUid: currentUser.uid,
-    chessFEN: chessGame.fen()
+    chessFEN: initialChess.fen()
   });
 
   enterRoom(code);
@@ -250,7 +248,9 @@ function enterRoom(code) {
 
     const rosterList = document.getElementById("players-list");
     rosterList.innerHTML = "";
+    let playersCount = 0;
     if (data.players) {
+      playersCount = Object.keys(data.players).length;
       Object.entries(data.players).forEach(([uid, p]) => {
         const li = document.createElement("li");
         li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
@@ -260,115 +260,15 @@ function enterRoom(code) {
     }
 
     if (data.status === "playing") {
-      document.getElementById("waiting-lobby").classList.add("hidden");
-      document.getElementById("active-game-container").classList.remove("hidden");
+      document.getElementById("game-screen").classList.add("hidden");
+      document.getElementById("fullscreen-game-overlay").classList.remove("hidden");
 
-      if (data.chessFEN) {
-        chessGame.load(data.chessFEN);
-        renderChessBoard();
+      if (!chessGameInstance) {
+        chessGameInstance = createChessGame("chess-game-container", db, currentRoom, isHost, currentUser);
       }
-
-      if (isHost) {
-        document.getElementById("reset-chess-btn").classList.remove("hidden");
-      }
+      chessGameInstance.updateState(data, playersCount);
     }
   });
-}
-
-// Render Chess Board UI
-function renderChessBoard() {
-  const boardEl = document.getElementById("chess-board");
-  boardEl.innerHTML = "";
-  boardEl.style.cssText = "display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: 380px; aspect-ratio: 1/1; margin: 0 auto; border: 3px solid #334155; border-radius: 6px; user-select: none;";
-
-  const board = chessGame.board();
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const squareEl = document.createElement("div");
-      const isDark = (r + c) % 2 === 1;
-      const file = 'abcdefgh'[c];
-      const rank = '87654321'[r];
-      const squareName = file + rank;
-
-      squareEl.style.cssText = `
-        background: ${isDark ? '#b58863' : '#f0d9b5'};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2.2rem;
-        cursor: pointer;
-        position: relative;
-      `;
-
-      const piece = board[r][c];
-      if (piece) {
-        const symbols = {
-          p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
-          P: '♙', R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔'
-        };
-        squareEl.innerText = symbols[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
-        squareEl.style.color = piece.color === 'w' ? '#ffffff' : '#0f172a';
-        squareEl.style.textShadow = piece.color === 'w' ? '0 1px 3px rgba(0,0,0,0.9)' : '0 1px 2px rgba(255,255,255,0.4)';
-      }
-
-      if (selectedSquare === squareName) {
-        squareEl.style.outline = '3px solid #38bdf8';
-        squareEl.style.outlineOffset = '-3px';
-        squareEl.style.background = '#769656';
-      }
-
-      squareEl.onclick = () => handleSquareClick(squareName);
-      boardEl.appendChild(squareEl);
-    }
-  }
-
-  const statusEl = document.getElementById("chess-status");
-  if (chessGame.in_checkmate()) {
-    statusEl.innerText = `🏁 انتهت اللعبة: مات الملك (Checkmate)!`;
-    statusEl.style.borderColor = "#ef4444";
-  } else if (chessGame.in_draw()) {
-    statusEl.innerText = `🤝 انتهت اللعبة بالتعادل (Draw)!`;
-    statusEl.style.borderColor = "#f59e0b";
-  } else {
-    const turnName = chessGame.turn() === 'w' ? 'الأبيض (White)' : 'الأسود (Black)';
-    statusEl.innerText = `دور اللاعب: ${turnName} ${chessGame.in_check() ? '⚠️ (تحذير كيش!)' : ''}`;
-    statusEl.style.borderColor = "#334155";
-  }
-}
-
-// Handle Square Clicks & Moves
-function handleSquareClick(square) {
-  const myColor = isHost ? 'w' : 'b';
-  if (chessGame.turn() !== myColor) {
-    return; // Not your turn
-  }
-
-  if (!selectedSquare) {
-    const piece = chessGame.get(square);
-    if (piece && piece.color === myColor) {
-      selectedSquare = square;
-      renderChessBoard();
-    }
-  } else {
-    const move = chessGame.move({
-      from: selectedSquare,
-      to: square,
-      promotion: 'q' // Auto promote to Queen
-    });
-
-    selectedSquare = null;
-    if (move) {
-      update(ref(db, `rooms/${currentRoom}`), {
-        chessFEN: chessGame.fen()
-      });
-    } else {
-      const piece = chessGame.get(square);
-      if (piece && piece.color === myColor) {
-        selectedSquare = square;
-      }
-      renderChessBoard();
-    }
-  }
 }
 
 // Host Starts the Game
@@ -377,25 +277,16 @@ document.getElementById("start-game-btn").onclick = () => {
   update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
 };
 
-// Reset Game Board (Host only)
-document.getElementById("reset-chess-btn").onclick = () => {
-  if (!isHost) return;
-  chessGame.reset();
-  update(ref(db, `rooms/${currentRoom}`), {
-    chessFEN: chessGame.fen()
-  });
-};
-
 // Quit Room Handler
 document.getElementById("quit-room-btn").onclick = () => {
   if (currentRoom) {
     remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
     currentRoom = null;
   }
+  chessGameInstance = null;
+  document.getElementById("fullscreen-game-overlay").classList.add("hidden");
   document.getElementById("game-screen").classList.add("hidden");
-  document.getElementById("active-game-container").classList.add("hidden");
   document.getElementById("waiting-lobby").classList.remove("hidden");
   document.getElementById("start-game-btn").classList.add("hidden");
-  document.getElementById("reset-chess-btn").classList.add("hidden");
   document.getElementById("lobby-screen").classList.remove("hidden");
 };
