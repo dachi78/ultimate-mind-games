@@ -7,7 +7,7 @@ export function initChessGame(db, code, isHost, currentUser) {
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 100%; max-width: 480px; margin: 0 auto; padding: 4px; box-sizing: border-box;">
       <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
         <div id="chess-status" style="font-size: 0.9rem; color: #facc15; font-weight: bold; text-align: right; flex: 1;">جاري الاتصال بالطاولة...</div>
-        <button id="quit-chess-btn" class="btn secondary" style="background: #ef4444; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; cursor: pointer; border: none; margin-left: 10px;">🚪 مغادرة اللعبة</button>
+        <button id="quit-chess-btn" class="btn secondary" style="background: #ef4444; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; cursor: pointer; border: none; margin-left: 10px; width: auto;">🚪 مغادرة اللعبة</button>
       </div>
       
       <div id="chess-board" style="display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: min(94vw, 400px); aspect-ratio: 1/1; border: 3px solid #334155; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.6); background: #1e293b;"></div>
@@ -67,12 +67,12 @@ export function initChessGame(db, code, isHost, currentUser) {
     boardEl.innerHTML = "";
     const board = state.board || initialBoard;
     
-    // When no guest/black player is joined yet, allow solo play as both white and black
+    // Solo play check: if no black player has joined yet, allow user to play both white and black
     const isSolo = !state.blackPlayer || state.whitePlayer === state.blackPlayer;
     
     let isMyTurn = false;
     if (isSolo) {
-      isMyTurn = true; // Solo mode: user can play both sides
+      isMyTurn = true;
     } else {
       const amIWhite = state.whitePlayer === currentUser.uid;
       const amIBlack = state.blackPlayer === currentUser.uid;
@@ -164,24 +164,18 @@ export function initChessGame(db, code, isHost, currentUser) {
     }
   }
 
-  const resetBtn = document.getElementById("reset-chess-btn");
-  if (resetBtn) {
-    resetBtn.onclick = () => {
-      set(roomRef, {
-        board: initialBoard,
-        turn: 'white',
-        whitePlayer: currentUser.uid,
-        blackPlayer: null,
-        winner: null
-      });
-    };
-  }
+  document.getElementById("reset-chess-btn").onclick = () => {
+    set(roomRef, {
+      board: initialBoard,
+      turn: 'white',
+      whitePlayer: currentUser.uid,
+      blackPlayer: null,
+      winner: null
+    });
+  };
 
-  const quitChessBtn = document.getElementById("quit-chess-btn");
-  if (quitChessBtn) {
-    quitChessBtn.onclick = () => {
-      document.getElementById("quit-room-btn").click();
-    };
-  }
+  document.getElementById("quit-chess-btn").onclick = () => {
+    document.getElementById("quit-room-btn").click();
+  };
 }
-```[cite: 4]
+```[cite: 4, 6]
