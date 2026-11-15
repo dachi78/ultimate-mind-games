@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, setPersistence, browserLocalPersistence, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
 import { getDatabase, ref, set, update, onValue, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
+import { initChessGame } from "./games/chess.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDh02-Eb7qpWavevk9xrt3h0Jbwb5vI8s",
@@ -284,7 +285,12 @@ function enterRoom(code) {
       document.getElementById("waiting-lobby").classList.add("hidden");
       document.getElementById("active-game-container").classList.remove("hidden");
 
-      renderGrid(data.activeLetter, data.claimedLetters || {});
+      if (data.gameMode === "chess") {
+        initChessGame(db, code, isHost, currentUser);
+      } else if (data.gameMode === "horouf") {
+        renderGrid(data.activeLetter, data.claimedLetters || {});
+      }
+
       const banner = document.getElementById("status-banner");
       if (data.buzzerWinner) {
         banner.innerText = `🔔 أسرع إجابة: ${data.buzzerWinner}!`;
