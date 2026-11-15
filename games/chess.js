@@ -1,181 +1,158 @@
-import { ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
+import { ref, update } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
-export function initChessGame(db, code, isHost, currentUser) {
-  const container = document.getElementById("active-game-container");
-  
-  container.innerHTML = `
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 100%; max-width: 480px; margin: 0 auto; padding: 4px; box-sizing: border-box;">
-      <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
-        <div id="chess-status" style="font-size: 0.9rem; color: #facc15; font-weight: bold; text-align: right; flex: 1;">جاري الاتصال بالطاولة...</div>
-        <button id="quit-chess-btn" class="btn secondary" style="background: #ef4444; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; cursor: pointer; border: none; margin-left: 10px; width: auto;">🚪 مغادرة اللعبة</button>
-      </div>
-      
-      <div id="chess-board" style="display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: min(94vw, 400px); aspect-ratio: 1/1; border: 3px solid #334155; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.6); background: #1e293b;"></div>
-      
-      <div style="width: 100%; max-width: min(94vw, 400px); margin-top: 12px; display: flex; gap: 10px;">
-        <button id="reset-chess-btn" class="btn secondary" style="background: #475569; flex: 1; padding: 8px; font-size: 0.85rem; border-radius: 8px;">🔄 إعادة تشغيل اللعبة</button>
-      </div>
-    </div>
-  `;
-
-  const boardEl = document.getElementById("chess-board");
-  const statusEl = document.getElementById("chess-status");
-  const roomRef = ref(db, `rooms/${code}/chessState`);
-
-  const initialBoard = [
-    ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-    ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-    ['', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', ''],
-    ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-    ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
-  ];
-
-  const pieceSymbols = {
-    'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙',
-    'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟'
-  };
-
+export function createChessGame(containerId, db, currentRoom, isHost, currentUser) {
+  let chessGame = new Chess();
   let selectedSquare = null;
 
-  onValue(roomRef, (snapshot) => {
-    let gameState = snapshot.val();
-    if (!gameState) {
-      if (isHost) {
-        gameState = {
-          board: initialBoard,
-          turn: 'white',
-          whitePlayer: currentUser.uid,
-          blackPlayer: null,
-          winner: null
-        };
-        set(roomRef, gameState);
-      }
-      return;
-    }
+  function render(data, playersCount) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = "";
 
-    if (!gameState.blackPlayer && !isHost && gameState.whitePlayer !== currentUser.uid) {
-      update(roomRef, { blackPlayer: currentUser.uid });
-    }
+    const boardWrapper = document.createElement("div");
+    boardWrapper.style.cssText = "display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 15px; box-sizing: border-box;";
 
-    renderBoard(gameState);
-  });
-
-  function renderBoard(state) {
-    boardEl.innerHTML = "";
-    const board = state.board || initialBoard;
+    // Status banner
+    const statusEl = document.createElement("div");
+    statusEl.id = "chess-status";
+    statusEl.className = "banner";
+    statusEl.style.cssText = "margin-bottom: 12px; padding: 10px 16px; text-align: center; border: 1px solid #334155; border-radius: 8px; font-weight: bold; background: #1e293b; color: #f8fafc; width: 100%; max-width: 420px; font-size: 0.95rem;";
     
-    // Solo play check: if no black player has joined yet, allow user to play both white and black
-    const isSolo = !state.blackPlayer || state.whitePlayer === state.blackPlayer;
-    
-    let isMyTurn = false;
-    if (isSolo) {
-      isMyTurn = true;
+    const isAlone = playersCount < 2;
+    if (chessGame.in_checkmate()) {
+      statusEl.innerText = `🏁 انتهت اللعبة: مات الملك (Checkmate)!`;
+      statusEl.style.borderColor = "#ef4444";
+    } else if (chessGame.in_draw()) {
+      statusEl.innerText = `🤝 انتهت اللعبة بالتعادل (Draw)!`;
+      statusEl.style.borderColor = "#f59e0b";
     } else {
-      const amIWhite = state.whitePlayer === currentUser.uid;
-      const amIBlack = state.blackPlayer === currentUser.uid;
-      isMyTurn = (state.turn === 'white' && amIWhite) || (state.turn === 'black' && amIBlack);
+      const turnName = chessGame.turn() === 'w' ? 'الأبيض (White)' : 'الأسود (Black)';
+      statusEl.innerText = `دور اللاعب: ${turnName} ${isAlone ? '(وضع فردي: تتحكم بالطرفين)' : ''} ${chessGame.in_check() ? '⚠️ (تحذير كيش!)' : ''}`;
     }
+    boardWrapper.appendChild(statusEl);
 
-    if (state.winner) {
-      statusEl.innerText = `🏆 انتهت اللعبة! الفائز: ${state.winner}`;
-    } else if (isSolo) {
-      statusEl.innerText = `🎮 وضع اللعب الفردي (القطع الـ${state.turn === 'white' ? 'بيضاء ⚪' : 'سوداء ⚫'})`;
-    } else {
-      statusEl.innerText = isMyTurn ? "🎯 دورك للعب (Your Turn)" : `⏳ دور الخصم (${state.turn === 'white' ? 'الأبيض' : 'الأسود'})`;
-    }
+    // Chess Board Element
+    const boardEl = document.createElement("div");
+    boardEl.style.cssText = "display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: min(85vw, 420px); aspect-ratio: 1/1; border: 4px solid #334155; border-radius: 8px; user-select: none; box-shadow: 0 10px 25px rgba(0,0,0,0.5);";
 
+    const board = chessGame.board();
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
-        const square = document.createElement("div");
+        const squareEl = document.createElement("div");
         const isDark = (r + c) % 2 === 1;
-        square.style.backgroundColor = isDark ? "#475569" : "#cbd5e1";
-        square.style.display = "flex";
-        square.style.alignItems = "center";
-        square.style.justifyContent = "center";
-        square.style.fontSize = "min(8.5vw, 2.1rem)";
-        square.style.cursor = "pointer";
-        square.style.userSelect = "none";
-        square.style.aspectRatio = "1/1";
+        const file = 'abcdefgh'[c];
+        const rank = '87654321'[r];
+        const squareName = file + rank;
+
+        squareEl.style.cssText = `
+          background: ${isDark ? '#b58863' : '#f0d9b5'};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: clamp(1.5rem, 5vw, 2.3rem);
+          cursor: pointer;
+          position: relative;
+        `;
 
         const piece = board[r][c];
         if (piece) {
-          square.innerText = pieceSymbols[piece] || piece;
-          square.style.color = piece === piece.toUpperCase() ? "#ffffff" : "#0f172a";
-          square.style.textShadow = piece === piece.toUpperCase() ? "0 1px 3px rgba(0,0,0,0.8)" : "0 1px 2px rgba(255,255,255,0.4)";
+          const symbols = {
+            p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
+            P: '♙', R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔'
+          };
+          squareEl.innerText = symbols[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
+          squareEl.style.color = piece.color === 'w' ? '#ffffff' : '#0f172a';
+          squareEl.style.textShadow = piece.color === 'w' ? '0 1px 3px rgba(0,0,0,0.9)' : '0 1px 2px rgba(255,255,255,0.4)';
         }
 
-        if (selectedSquare && selectedSquare.r === r && selectedSquare.c === c) {
-          square.style.outline = "3px solid #38bdf8";
-          square.style.outlineOffset = "-3px";
-          square.style.zIndex = "10";
+        if (selectedSquare === squareName) {
+          squareEl.style.outline = '3px solid #38bdf8';
+          squareEl.style.outlineOffset = '-3px';
+          squareEl.style.background = '#769656';
         }
 
-        square.onclick = () => {
-          if (state.winner) return;
-          if (!isMyTurn) {
-            alert("ليس دورك للعب الآن!");
-            return;
-          }
+        squareEl.onclick = () => handleSquareClick(squareName, playersCount);
+        boardEl.appendChild(squareEl);
+      }
+    }
+    boardWrapper.appendChild(boardEl);
 
-          if (!selectedSquare) {
-            if (!piece) return;
-            const isWhitePiece = piece === piece.toUpperCase();
-            
-            if (isSolo) {
-              if ((state.turn === 'white' && !isWhitePiece) || (state.turn === 'black' && isWhitePiece)) {
-                alert(`الدور الحالي للقطع الـ${state.turn === 'white' ? 'بيضاء' : 'سوداء'}!`);
-                return;
-              }
-            } else {
-              if ((state.turn === 'white' && !isWhitePiece) || (state.turn === 'black' && isWhitePiece)) {
-                alert("هذه قطعتك الخاصة باللون الآخر!");
-                return;
-              }
-            }
+    // Controls container (Reset & Quit)
+    const controlsDiv = document.createElement("div");
+    controlsDiv.style.cssText = "display: flex; gap: 10px; width: 100%; max-width: min(85vw, 420px); margin-top: 15px;";
 
-            selectedSquare = { r, c };
-            renderBoard(state);
-          } else {
-            const newBoard = board.map(row => [...row]);
-            const targetPiece = newBoard[selectedSquare.r][selectedSquare.c];
-            
-            if (newBoard[r][c].toLowerCase() === 'k') {
-              state.winner = state.turn === 'white' ? 'الأبيض (White)' : 'الأسود (Black)';
-            }
+    if (isHost) {
+      const resetBtn = document.createElement("button");
+      resetBtn.className = "btn secondary";
+      resetBtn.innerText = "🔄 إعادة تعيين";
+      resetBtn.style.flex = "1";
+      resetBtn.onclick = () => {
+        chessGame.reset();
+        update(ref(db, `rooms/${currentRoom}`), { chessFEN: chessGame.fen() });
+      };
+      controlsDiv.appendChild(resetBtn);
+    }
 
-            newBoard[r][c] = targetPiece;
-            newBoard[selectedSquare.r][selectedSquare.c] = '';
-            selectedSquare = null;
+    const quitBtn = document.createElement("button");
+    quitBtn.className = "btn secondary";
+    quitBtn.innerText = "🚪 مغادرة اللعبة";
+    quitBtn.style.cssText = "flex: 1; background: #ef4444; color: white;";
+    quitBtn.onclick = () => {
+      document.getElementById("fullscreen-game-overlay").classList.add("hidden");
+      document.getElementById("quit-room-btn").click();
+    };
+    controlsDiv.appendChild(quitBtn);
 
-            const nextTurn = state.turn === 'white' ? 'black' : 'white';
-            update(roomRef, {
-              board: newBoard,
-              turn: nextTurn,
-              winner: state.winner || null
-            });
-          }
-        };
+    boardWrapper.appendChild(controlsDiv);
+    container.appendChild(boardWrapper);
+  }
 
-        boardEl.appendChild(square);
+  function handleSquareClick(square, playersCount) {
+    const myColor = isHost ? 'w' : 'b';
+    const isAlone = playersCount < 2; // إذا لم ينضم ضيف، يمكنك اللعب بالطرفين الأبيض والأسود
+
+    if (!isAlone && chessGame.turn() !== myColor) {
+      return; // ليس دورك ولديك خصم معنا في الغرفة
+    }
+
+    const pieceAtSquare = chessGame.get(square);
+
+    if (!selectedSquare) {
+      if (pieceAtSquare && (isAlone || pieceAtSquare.color === chessGame.turn())) {
+        selectedSquare = square;
+        render(null, playersCount);
+      }
+    } else {
+      const move = chessGame.move({
+        from: selectedSquare,
+        to: square,
+        promotion: 'q'
+      });
+
+      selectedSquare = null;
+      if (move) {
+        update(ref(db, `rooms/${currentRoom}`), {
+          chessFEN: chessGame.fen()
+        });
+      } else {
+        if (pieceAtSquare && (isAlone || pieceAtSquare.color === chessGame.turn())) {
+          selectedSquare = square;
+        }
+        render(null, playersCount);
       }
     }
   }
 
-  document.getElementById("reset-chess-btn").onclick = () => {
-    set(roomRef, {
-      board: initialBoard,
-      turn: 'white',
-      whitePlayer: currentUser.uid,
-      blackPlayer: null,
-      winner: null
-    });
-  };
-
-  document.getElementById("quit-chess-btn").onclick = () => {
-    document.getElementById("quit-room-btn").click();
+  return {
+    updateState(data, playersCount) {
+      if (data && data.chessFEN) {
+        chessGame.load(data.chessFEN);
+      }
+      render(data, playersCount);
+    },
+    reset() {
+      chessGame.reset();
+      selectedSquare = null;
+    }
   };
 }
-```[cite: 4, 6]
