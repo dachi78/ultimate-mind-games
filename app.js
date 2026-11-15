@@ -24,7 +24,6 @@ let isHost = false;
 let uploadedAvatarBase64 = null;
 let chessGameInstance = null;
 
-// Set Persistence & Listen for Auth State Changes
 setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.error("Persistence setup error:", err);
 });
@@ -69,7 +68,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Top-Right Dropdown Menu Toggle
 const menuToggleBtn = document.getElementById("menu-toggle-btn");
 const dropdownMenu = document.getElementById("dropdown-menu");
 
@@ -84,7 +82,6 @@ window.onclick = () => {
   }
 };
 
-// Login Handlers
 document.getElementById("google-login-btn").onclick = () => {
   signInWithPopup(auth, new GoogleAuthProvider())
     .catch((err) => alert("Google Login Error: " + err.message));
@@ -95,7 +92,6 @@ document.getElementById("guest-login-btn").onclick = () => {
     .catch((err) => alert("Guest Login Error: " + err.message));
 };
 
-// Logout Handler
 document.getElementById("logout-btn").onclick = () => {
   if (currentRoom) {
     remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
@@ -113,7 +109,6 @@ document.getElementById("settings-menu-btn").onclick = () => {
   alert("قريباً: إعدادات الصوت والوضع الليلي!");
 };
 
-// Profile Customization Modal
 document.getElementById("edit-profile-menu-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.remove("hidden");
   document.getElementById("new-username-input").value = currentProfile.name;
@@ -172,7 +167,6 @@ document.getElementById("save-profile-btn").onclick = async () => {
   }
 };
 
-// Host Setup Navigation
 document.getElementById("open-host-setup-btn").onclick = () => {
   document.getElementById("lobby-screen").classList.add("hidden");
   document.getElementById("host-setup-screen").classList.remove("hidden");
@@ -192,7 +186,6 @@ function generateRoomCode() {
   return code;
 }
 
-// Confirm Host Setup & Create Room
 document.getElementById("confirm-host-btn").onclick = () => {
   const code = generateRoomCode();
   const voiceChat = document.getElementById("voice-chat-toggle").checked;
@@ -213,7 +206,6 @@ document.getElementById("confirm-host-btn").onclick = () => {
   enterRoom(code);
 };
 
-// Join Room as Player
 document.getElementById("join-room-btn").onclick = () => {
   const code = document.getElementById("room-code-input").value.trim().toUpperCase();
   if (code.length !== 6) return alert("الرمز يجب أن يكون مكوناً من 6 خانات");
@@ -260,33 +252,60 @@ function enterRoom(code) {
     }
 
     if (data.status === "playing") {
+      // إخفاء القوائم بالكامل والانتقال لملء الشاشة
       document.getElementById("game-screen").classList.add("hidden");
-      document.getElementById("fullscreen-game-overlay").classList.remove("hidden");
+      document.getElementById("user-profile-bar").classList.add("hidden");
+      document.getElementById("active-game-screen").classList.remove("hidden");
 
       if (!chessGameInstance) {
-        chessGameInstance = createChessGame("chess-game-container", db, currentRoom, isHost, currentUser);
+        chessGameInstance = createChessGame({
+          boardContainerId: "chess-board-container",
+          statusContainerId: "chess-status",
+          db,
+          currentRoom,
+          isHost
+        });
       }
       chessGameInstance.updateState(data, playersCount);
+
+      if (isHost) {
+        const resetBtn = document.getElementById("in-game-reset-btn");
+        resetBtn.style.display = "block";
+        resetBtn.onclick = () => {
+          const freshGame = new Chess();
+          freshGame.reset();
+          update(ref(db, `rooms/${currentRoom}`), { chessFEN: freshGame.fen() });
+        };
+      }
     }
   });
 }
 
-// Host Starts the Game
 document.getElementById("start-game-btn").onclick = () => {
   if (!isHost) return;
   update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
 };
 
-// Quit Room Handler
+// Quit Room from Waiting Lobby
 document.getElementById("quit-room-btn").onclick = () => {
+  quitCurrentRoom();
+};
+
+// Quit Room from Active Full-Screen Game
+document.getElementById("in-game-quit-btn").onclick = () => {
+  quitCurrentRoom();
+};
+
+function quitCurrentRoom() {
   if (currentRoom) {
     remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
     currentRoom = null;
   }
   chessGameInstance = null;
-  document.getElementById("fullscreen-game-overlay").classList.add("hidden");
+  document.getElementById("active-game-screen").classList.add("hidden");
   document.getElementById("game-screen").classList.add("hidden");
+  document.getElementById("user-profile-bar").classList.remove("hidden");
   document.getElementById("waiting-lobby").classList.remove("hidden");
   document.getElementById("start-game-btn").classList.add("hidden");
   document.getElementById("lobby-screen").classList.remove("hidden");
-};
+}
