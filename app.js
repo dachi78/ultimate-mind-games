@@ -25,7 +25,6 @@ let uploadedAvatarBase64 = null;
 
 const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
 
-// Set Persistence & Listen for Auth State Changes
 setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.error("Persistence setup error:", err);
 });
@@ -36,7 +35,6 @@ onAuthStateChanged(auth, async (user) => {
     const defaultName = user.displayName || "Guest-" + user.uid.slice(0, 4);
     const defaultAvatar = user.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
 
-    // Check Realtime Database for custom saved name/avatar
     try {
       const snap = await get(ref(db, `users/${user.uid}`));
       if (snap.exists()) {
@@ -71,7 +69,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Top-Right Dropdown Menu Toggle
 const menuToggleBtn = document.getElementById("menu-toggle-btn");
 const dropdownMenu = document.getElementById("dropdown-menu");
 
@@ -86,7 +83,6 @@ window.onclick = () => {
   }
 };
 
-// Login Handlers
 document.getElementById("google-login-btn").onclick = () => {
   signInWithPopup(auth, new GoogleAuthProvider())
     .catch((err) => alert("Google Login Error: " + err.message));
@@ -97,7 +93,6 @@ document.getElementById("guest-login-btn").onclick = () => {
     .catch((err) => alert("Guest Login Error: " + err.message));
 };
 
-// Logout Handler with cleanup
 document.getElementById("logout-btn").onclick = () => {
   if (currentRoom) {
     remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
@@ -105,7 +100,6 @@ document.getElementById("logout-btn").onclick = () => {
   signOut(auth).catch((err) => alert("Logout Error: " + err.message));
 };
 
-// Friends & Settings Handlers
 document.getElementById("friends-menu-btn").onclick = () => {
   document.getElementById("friends-modal").classList.remove("hidden");
 };
@@ -116,7 +110,6 @@ document.getElementById("settings-menu-btn").onclick = () => {
   alert("قريباً: إعدادات الصوت، والوضع الليلي المتقدم، وتخصيص اللعبة!");
 };
 
-// Profile Customization Modal & Image Compression Handler
 document.getElementById("edit-profile-menu-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.remove("hidden");
   document.getElementById("new-username-input").value = currentProfile.name;
@@ -127,7 +120,6 @@ document.getElementById("cancel-profile-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.add("hidden");
 };
 
-// Compress uploaded image to 96x96 JPEG so it stores cleanly in Firebase RTDB
 document.getElementById("avatar-file-input").onchange = (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -156,10 +148,7 @@ document.getElementById("save-profile-btn").onclick = async () => {
   const finalAvatar = uploadedAvatarBase64 || currentProfile.avatar;
 
   try {
-    // Save name to Firebase Auth (short string, no URL limit issue)
     await updateProfile(currentUser, { displayName: newName });
-
-    // Save both name and compressed avatar to Realtime Database
     currentProfile = { name: newName, avatar: finalAvatar };
     await set(ref(db, `users/${currentUser.uid}`), currentProfile);
 
@@ -179,7 +168,6 @@ document.getElementById("save-profile-btn").onclick = async () => {
   }
 };
 
-// Host Setup Navigation
 document.getElementById("open-host-setup-btn").onclick = () => {
   document.getElementById("lobby-screen").classList.add("hidden");
   document.getElementById("host-setup-screen").classList.remove("hidden");
@@ -190,7 +178,6 @@ document.getElementById("cancel-host-btn").onclick = () => {
   document.getElementById("lobby-screen").classList.remove("hidden");
 };
 
-// Generate 6-Digit Alphanumeric Room Code
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -200,11 +187,11 @@ function generateRoomCode() {
   return code;
 }
 
-// Confirm Host Setup & Create Room
 document.getElementById("confirm-host-btn").onclick = () => {
   const code = generateRoomCode();
   const gameMode = document.getElementById("game-mode-select").value;
-  const maxPlayers = document.getElementById("max-players-input").value;
+  // Enforce strictly 2 players (Host + 1 Guest) for Chess
+  const maxPlayers = gameMode === "chess" ? 2 : (document.getElementById("max-players-input").value || 10);
   const voiceChat = document.getElementById("voice-chat-toggle").checked;
 
   isHost = true;
@@ -222,10 +209,27 @@ document.getElementById("confirm-host-btn").onclick = () => {
   enterRoom(code);
 };
 
-// Join Room as Player
-document.getElementById("join-room-btn").onclick = () => {
+document.getElementById("join-room-btn").onclick = async () => {
   const code = document.getElementById("room-code-input").value.trim().toUpperCase();
   if (code.length !== 6) return alert("الرمز يجب أن يكون مكوناً من 6 خانات");
+
+  // Block extra guests if Chess room already has 2 players
+  try {
+    const snap = await get(ref(db, `rooms/${code}`));
+    if (!snap.exists()) {
+      return alert("الغرفة غير موجودة!");
+    }
+    const roomData = snap.val();
+    if (roomData.gameMode === "chess" && roomData.players) {
+      const playerCount = Object.keys(roomData.players).length;
+      if (playerCount >= 2 && !roomData.players[currentUser.uid]) {
+        return alert("غرفة الشطرنج ممتلئة! الحد الأقصى لاعب واحد فقط ضد المضيف.");
+      }
+    }
+  } catch (err) {
+    console.error(err);
+  }
+
   isHost = false;
   enterRoom(code);
 };
@@ -264,54 +268,58 @@ function enterRoom(code) {
         const li = document.createElement("li");
         li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
         li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role})</span>`;
-        
-        if (isHost && uid !== currentUser.uid) {
-          const adminBtn = document.createElement("button");
-          adminBtn.innerText = p.role === "admin" ? "إلغاء مشرف" : "ترقية مشرف";
-          adminBtn.className = "btn secondary";
-          adminBtn.style.padding = "4px 8px";
-          adminBtn.style.fontSize = "0.75rem";
-          adminBtn.style.marginLeft = "auto";
-          adminBtn.onclick = () => {
-            update(ref(db, `rooms/${code}/players/${uid}`), { role: p.role === "admin" ? "player" : "admin" });
-          };
-          li.appendChild(adminBtn);
-        }
         rosterList.appendChild(li);
       });
     }
 
     if (data.status === "playing") {
+      // Transition to a clean game-only view (keeping only top-left avatar & top-right menu)
       document.getElementById("waiting-lobby").classList.add("hidden");
       document.getElementById("active-game-container").classList.remove("hidden");
+      
+      const mainHeader = document.querySelector("header");
+      if (mainHeader) mainHeader.classList.add("hidden");
+      const mainFooter = document.querySelector("footer");
+      if (mainFooter) mainFooter.classList.add("hidden");
+      const roomHeader = document.querySelector(".room-header");
+      if (roomHeader) roomHeader.classList.add("hidden");
+      const quitBtn = document.getElementById("quit-room-btn");
+      if (quitBtn) quitBtn.classList.add("hidden");
 
       if (data.gameMode === "chess") {
         initChessGame(db, code, isHost, currentUser);
       } else if (data.gameMode === "horouf") {
         renderGrid(data.activeLetter, data.claimedLetters || {});
-      }
-
-      const banner = document.getElementById("status-banner");
-      if (data.buzzerWinner) {
-        banner.innerText = `🔔 أسرع إجابة: ${data.buzzerWinner}!`;
-        banner.style.borderColor = "#ef4444";
-      } else if (data.activeLetter) {
-        banner.innerText = `الحرف المختار: [ ${data.activeLetter} ]`;
-        banner.style.borderColor = "#f59e0b";
-      } else {
-        banner.innerText = "اختر حرفاً من اللوحة للبدء!";
-        banner.style.borderColor = "#334155";
+        const banner = document.getElementById("status-banner");
+        if (data.buzzerWinner) {
+          banner.innerText = `🔔 أسرع إجابة: ${data.buzzerWinner}!`;
+          banner.style.borderColor = "#ef4444";
+        } else if (data.activeLetter) {
+          banner.innerText = `الحرف المختار: [ ${data.activeLetter} ]`;
+          banner.style.borderColor = "#f59e0b";
+        } else {
+          banner.innerText = "اختر حرفاً من اللوحة للبدء!";
+          banner.style.borderColor = "#334155";
+        }
       }
     }
   });
 }
 
-// Quit Room Handler
 document.getElementById("quit-room-btn").onclick = () => {
   if (currentRoom) {
     remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
     currentRoom = null;
   }
+  const mainHeader = document.querySelector("header");
+  if (mainHeader) mainHeader.classList.remove("hidden");
+  const mainFooter = document.querySelector("footer");
+  if (mainFooter) mainFooter.classList.remove("hidden");
+  const roomHeader = document.querySelector(".room-header");
+  if (roomHeader) roomHeader.classList.remove("hidden");
+  const quitBtn = document.getElementById("quit-room-btn");
+  if (quitBtn) quitBtn.classList.remove("hidden");
+
   document.getElementById("game-screen").classList.add("hidden");
   document.getElementById("active-game-container").classList.add("hidden");
   document.getElementById("waiting-lobby").classList.remove("hidden");
@@ -321,13 +329,11 @@ document.getElementById("quit-room-btn").onclick = () => {
   document.getElementById("lobby-screen").classList.remove("hidden");
 };
 
-// Host Starts the Game
 document.getElementById("start-game-btn").onclick = () => {
   if (!isHost) return;
   update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
 };
 
-// Horouf Letter Grid Render & Interaction
 function renderGrid(activeLetter, claimedLetters) {
   const grid = document.getElementById("letter-grid");
   grid.innerHTML = "";
@@ -354,7 +360,6 @@ function renderGrid(activeLetter, claimedLetters) {
   });
 }
 
-// Buzzer Handlers
 document.getElementById("buzzer-btn").onclick = () => {
   const name = currentProfile.name;
   onValue(ref(db, `rooms/${currentRoom}/buzzerWinner`), (snap) => {
