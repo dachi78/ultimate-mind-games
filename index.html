@@ -8,7 +8,6 @@
   <!-- Include chess.js library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
   <style>
-    /* Mobile Fixed Navigation Bar */
     .top-nav {
       position: fixed;
       top: 0;
@@ -146,7 +145,7 @@
 
   <div class="container">
     <header>
-      <h1>♟️ Ultimate Chess Arena</h1>
+      <h1>🧠 Ultimate Mind Games</h1>
       <label class="salah-toggle">
         <input type="checkbox" id="muslim-mode-checkbox">
         <span>🕌 تفعيل التوقف التلقائي للصلاة (Auto-Pause for Salah)</span>
@@ -162,7 +161,7 @@
 
     <!-- 2. Main Lobby / Menu -->
     <section id="lobby-screen" class="card hidden">
-      <button id="open-host-setup-btn" class="btn primary">🎙️ إنشاء غرفة شطرنج جديدة (Host Chess)</button>
+      <button id="open-host-setup-btn" class="btn primary">🎙️ إنشاء غرفة شطرنج جديدة (Host Game)</button>
       <div class="divider">أو (OR)</div>
       <input type="text" id="room-code-input" placeholder="أدخل رمز الغرفة (6 خانات)" style="text-transform: uppercase;" maxlength="6">
       <button id="join-room-btn" class="btn success">🎮 انضمام للغرفة (Join Room)</button>
@@ -173,10 +172,10 @@
       <h2>إعدادات غرفة الشطرنج</h2>
       <label>لعبة الشطرنج (Game Mode):</label>
       <select id="game-mode-select" class="input-field" disabled style="background: #1e293b; color: #38bdf8;">
-        <option value="chess">شطرنج (Chess - 2 Players)</option>
+        <option value="chess">شطرنج (Chess - Solo or 2 Players)</option>
       </select>
 
-      <label>عدد اللاعبين (Fixed):</label>
+      <label>عدد اللاعبين:</label>
       <input type="number" id="max-players-input" value="2" readonly style="background: #1e293b; color: #94a3b8;">
 
       <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 10px;">
@@ -187,36 +186,33 @@
       <button id="cancel-host-btn" class="btn secondary" style="margin-top: 8px;">إلغاء</button>
     </section>
 
-    <!-- Waiting Lobby & Active Game Arena -->
+    <!-- Waiting Lobby -->
     <section id="game-screen" class="card hidden">
       <div class="room-header" style="display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold;">
         <span id="display-room-code" style="color: #38bdf8;">Room: ------</span>
         <span id="role-badge" style="background: #334155; padding: 2px 8px; border-radius: 4px;">Player</span>
       </div>
 
-      <!-- Waiting Lobby Roster -->
       <div id="waiting-lobby" class="card" style="background: #0f172a; border: 1px solid #334155; margin-bottom: 0;">
-        <h3>👥 غرفة الانتظار (Waiting Lobby - 2 Players Max)</h3>
+        <h3>👥 غرفة الانتظار (Waiting Lobby)</h3>
         <ul id="players-list" style="list-style: none; padding: 0; margin: 10px 0; display: flex; flex-direction: column; gap: 8px;"></ul>
         <button id="start-game-btn" class="btn primary hidden" style="margin-top: 10px; width: 100%;">🎮 ابدأ لعبة الشطرنج (Start Game)</button>
       </div>
 
-      <!-- Active Chess Board Container -->
-      <div id="active-game-container" class="hidden">
-        <div id="chess-status" class="banner" style="margin-bottom: 15px; padding: 10px; text-align: center; border: 1px solid #334155; border-radius: 6px; font-weight: bold;">دور اللاعب: الأبيض</div>
-        <div id="chess-board"></div>
-        <button id="reset-chess-btn" class="btn secondary hidden" style="width: 100%; margin-top: 15px;">🔄 إعادة تعيين اللوحة (Host Reset)</button>
-      </div>
-
-      <!-- Quit Room Button -->
+      <!-- Quit Room Button (in lobby) -->
       <button id="quit-room-btn" class="btn secondary" style="margin-top: 15px; width: 100%; background: #475569;">🚪 مغادرة الغرفة (Quit Room)</button>
     </section>
 
     <footer>
-      <small>Online Chess Platform powered by Firebase & Chess.js</small>
+      <small>Free-to-play platform. Prizes are independently provided by room hosts.</small>
     </footer>
   </div>
 
-  <script type="module" src="app.js?v=200"></script>
+  <!-- Full-Screen Active Game Overlay -->
+  <div id="fullscreen-game-overlay" class="overlay hidden" style="position: fixed; inset: 0; width: 100vw; height: 100vh; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; overflow-y: auto;">
+    <div id="chess-game-container" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"></div>
+  </div>
+
+  <script type="module" src="app.js?v=205"></script>
 </body>
 </html>
