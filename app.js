@@ -21,6 +21,7 @@ let currentUser = null;
 let currentProfile = { name: "", avatar: "" };
 let currentRoom = null;
 let isHost = false;
+let selectedColor = "white";
 let uploadedAvatarBase64 = null;
 let chessGameInstance = null;
 
@@ -186,7 +187,24 @@ function generateRoomCode() {
   return code;
 }
 
+// Show Color Selection Modal before confirming host setup
 document.getElementById("confirm-host-btn").onclick = () => {
+  document.getElementById("color-selection-modal").classList.remove("hidden");
+};
+
+document.getElementById("pick-white-btn").onclick = () => {
+  selectedColor = "white";
+  document.getElementById("color-selection-modal").classList.add("hidden");
+  createRoomAndEnter();
+};
+
+document.getElementById("pick-black-btn").onclick = () => {
+  selectedColor = "black";
+  document.getElementById("color-selection-modal").classList.add("hidden");
+  createRoomAndEnter();
+};
+
+function createRoomAndEnter() {
   const code = generateRoomCode();
   const voiceChat = document.getElementById("voice-chat-toggle").checked;
 
@@ -204,12 +222,13 @@ document.getElementById("confirm-host-btn").onclick = () => {
   });
 
   enterRoom(code);
-};
+}
 
 document.getElementById("join-room-btn").onclick = () => {
   const code = document.getElementById("room-code-input").value.trim().toUpperCase();
   if (code.length !== 6) return alert("الرمز يجب أن يكون مكوناً من 6 خانات");
   isHost = false;
+  selectedColor = "black"; // Default joiner color
   enterRoom(code);
 };
 
@@ -219,14 +238,14 @@ function enterRoom(code) {
   document.getElementById("host-setup-screen").classList.add("hidden");
   document.getElementById("game-screen").classList.remove("hidden");
   document.getElementById("display-room-code").innerText = `Room: ${code}`;
-  document.getElementById("role-badge").innerText = isHost ? "🎙️ Host (White)" : "🎮 Player (Black)";
+  document.getElementById("role-badge").innerText = isHost ? `🎙️ Host (${selectedColor})` : `🎮 Player (${selectedColor})`;
 
   const playerRef = ref(db, `rooms/${code}/players/${currentUser.uid}`);
   set(playerRef, {
     name: currentProfile.name,
     photoURL: currentProfile.avatar,
     role: isHost ? "host" : "player",
-    color: isHost ? "white" : "black"
+    color: selectedColor
   });
   onDisconnect(playerRef).remove();
 
@@ -246,7 +265,7 @@ function enterRoom(code) {
       Object.entries(data.players).forEach(([uid, p]) => {
         const li = document.createElement("li");
         li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
-        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role === 'host' ? 'Host - White' : 'Player - Black'})</span>`;
+        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.color})</span>`;
         rosterList.appendChild(li);
       });
     }
@@ -262,20 +281,12 @@ function enterRoom(code) {
           statusContainerId: "chess-status",
           db,
           currentRoom,
-          isHost
+          isHost,
+          players: data.players,
+          myColor: selectedColor
         });
       }
       chessGameInstance.updateState(data, playersCount);
-
-      if (isHost) {
-        const resetBtn = document.getElementById("in-game-reset-btn");
-        resetBtn.style.display = "block";
-        resetBtn.onclick = () => {
-          const freshGame = new Chess();
-          freshGame.reset();
-          update(ref(db, `rooms/${currentRoom}`), { chessFEN: freshGame.fen() });
-        };
-      }
     }
   });
 }
