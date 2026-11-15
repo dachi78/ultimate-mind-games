@@ -23,8 +23,6 @@ let currentRoom = null;
 let isHost = false;
 let uploadedAvatarBase64 = null;
 
-const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
-
 setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.error("Persistence setup error:", err);
 });
@@ -72,111 +70,151 @@ onAuthStateChanged(auth, async (user) => {
 const menuToggleBtn = document.getElementById("menu-toggle-btn");
 const dropdownMenu = document.getElementById("dropdown-menu");
 
-menuToggleBtn.onclick = (e) => {
-  e.stopPropagation();
-  dropdownMenu.classList.toggle("show");
-};
+if (menuToggleBtn) {
+  menuToggleBtn.onclick = (e) => {
+    e.stopPropagation();
+    dropdownMenu.classList.toggle("show");
+  };
+}
 
 window.onclick = () => {
-  if (dropdownMenu.classList.contains("show")) {
+  if (dropdownMenu && dropdownMenu.classList.contains("show")) {
     dropdownMenu.classList.remove("show");
   }
 };
 
-document.getElementById("google-login-btn").onclick = () => {
-  signInWithPopup(auth, new GoogleAuthProvider())
-    .catch((err) => alert("Google Login Error: " + err.message));
-};
-
-document.getElementById("guest-login-btn").onclick = () => {
-  signInAnonymously(auth)
-    .catch((err) => alert("Guest Login Error: " + err.message));
-};
-
-document.getElementById("logout-btn").onclick = () => {
-  if (currentRoom) {
-    remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
-  }
-  signOut(auth).catch((err) => alert("Logout Error: " + err.message));
-};
-
-document.getElementById("friends-menu-btn").onclick = () => {
-  document.getElementById("friends-modal").classList.remove("hidden");
-};
-document.getElementById("close-friends-btn").onclick = () => {
-  document.getElementById("friends-modal").classList.add("hidden");
-};
-document.getElementById("settings-menu-btn").onclick = () => {
-  alert("قريباً: إعدادات الصوت، والوضع الليلي المتقدم، وتخصيص اللعبة!");
-};
-
-document.getElementById("edit-profile-menu-btn").onclick = () => {
-  document.getElementById("edit-profile-modal").classList.remove("hidden");
-  document.getElementById("new-username-input").value = currentProfile.name;
-  uploadedAvatarBase64 = currentProfile.avatar;
-};
-
-document.getElementById("cancel-profile-btn").onclick = () => {
-  document.getElementById("edit-profile-modal").classList.add("hidden");
-};
-
-document.getElementById("avatar-file-input").onchange = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const size = 96;
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, size, size);
-      uploadedAvatarBase64 = canvas.toDataURL("image/jpeg", 0.7);
-    };
-    img.src = event.target.result;
+const googleLoginBtn = document.getElementById("google-login-btn");
+if (googleLoginBtn) {
+  googleLoginBtn.onclick = () => {
+    signInWithPopup(auth, new GoogleAuthProvider())
+      .catch((err) => alert("Google Login Error: " + err.message));
   };
-  reader.readAsDataURL(file);
-};
+}
 
-document.getElementById("save-profile-btn").onclick = async () => {
-  const newName = document.getElementById("new-username-input").value.trim();
-  if (!newName) return alert("الرجاء إدخال اسم مستخدم صحيح");
+const guestLoginBtn = document.getElementById("guest-login-btn");
+if (guestLoginBtn) {
+  guestLoginBtn.onclick = () => {
+    signInAnonymously(auth)
+      .catch((err) => alert("Guest Login Error: " + err.message));
+  };
+}
 
-  const finalAvatar = uploadedAvatarBase64 || currentProfile.avatar;
-
-  try {
-    await updateProfile(currentUser, { displayName: newName });
-    currentProfile = { name: newName, avatar: finalAvatar };
-    await set(ref(db, `users/${currentUser.uid}`), currentProfile);
-
-    document.getElementById("profile-name").innerText = newName;
-    document.getElementById("user-avatar").src = finalAvatar;
-    document.getElementById("edit-profile-modal").classList.add("hidden");
-
+const logoutBtn = document.getElementById("logout-btn");
+if (logoutBtn) {
+  logoutBtn.onclick = () => {
     if (currentRoom) {
-      await update(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`), {
-        name: newName,
-        photoURL: finalAvatar
-      });
+      remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
     }
-    alert("تم تحديث الملف الشخصي بنجاح!");
-  } catch (err) {
-    alert("خطأ في التحديث: " + err.message);
-  }
-};
+    signOut(auth).catch((err) => alert("Logout Error: " + err.message));
+  };
+}
 
-document.getElementById("open-host-setup-btn").onclick = () => {
-  document.getElementById("lobby-screen").classList.add("hidden");
-  document.getElementById("host-setup-screen").classList.remove("hidden");
-};
+const friendsMenuBtn = document.getElementById("friends-menu-btn");
+if (friendsMenuBtn) {
+  friendsMenuBtn.onclick = () => {
+    document.getElementById("friends-modal").classList.remove("hidden");
+  };
+}
 
-document.getElementById("cancel-host-btn").onclick = () => {
-  document.getElementById("host-setup-screen").classList.add("hidden");
-  document.getElementById("lobby-screen").classList.remove("hidden");
-};
+const closeFriendsBtn = document.getElementById("close-friends-btn");
+if (closeFriendsBtn) {
+  closeFriendsBtn.onclick = () => {
+    document.getElementById("friends-modal").classList.add("hidden");
+  };
+}
+
+const settingsMenuBtn = document.getElementById("settings-menu-btn");
+if (settingsMenuBtn) {
+  settingsMenuBtn.onclick = () => {
+    alert("قريباً: إعدادات الصوت، والوضع الليلي المتقدم!");
+  };
+}
+
+const editProfileMenuBtn = document.getElementById("edit-profile-menu-btn");
+if (editProfileMenuBtn) {
+  editProfileMenuBtn.onclick = () => {
+    document.getElementById("edit-profile-modal").classList.remove("hidden");
+    document.getElementById("new-username-input").value = currentProfile.name;
+    uploadedAvatarBase64 = currentProfile.avatar;
+  };
+}
+
+const cancelProfileBtn = document.getElementById("cancel-profile-btn");
+if (cancelProfileBtn) {
+  cancelProfileBtn.onclick = () => {
+    document.getElementById("edit-profile-modal").classList.add("hidden");
+  };
+}
+
+const avatarFileInput = document.getElementById("avatar-file-input");
+if (avatarFileInput) {
+  avatarFileInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const size = 96;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, size, size);
+        uploadedAvatarBase64 = canvas.toDataURL("image/jpeg", 0.7);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+}
+
+const saveProfileBtn = document.getElementById("save-profile-btn");
+if (saveProfileBtn) {
+  saveProfileBtn.onclick = async () => {
+    const newName = document.getElementById("new-username-input").value.trim();
+    if (!newName) return alert("الرجاء إدخال اسم مستخدم صحيح");
+
+    const finalAvatar = uploadedAvatarBase64 || currentProfile.avatar;
+
+    try {
+      await updateProfile(currentUser, { displayName: newName });
+      currentProfile = { name: newName, avatar: finalAvatar };
+      await set(ref(db, `users/${currentUser.uid}`), currentProfile);
+
+      document.getElementById("profile-name").innerText = newName;
+      document.getElementById("user-avatar").src = finalAvatar;
+      document.getElementById("edit-profile-modal").classList.add("hidden");
+
+      if (currentRoom) {
+        await update(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`), {
+          name: newName,
+          photoURL: finalAvatar
+        });
+      }
+      alert("تم تحديث الملف الشخصي بنجاح!");
+    } catch (err) {
+      alert("خطأ في التحديث: " + err.message);
+    }
+  };
+}
+
+const openHostSetupBtn = document.getElementById("open-host-setup-btn");
+if (openHostSetupBtn) {
+  openHostSetupBtn.onclick = () => {
+    document.getElementById("lobby-screen").classList.add("hidden");
+    document.getElementById("host-setup-screen").classList.remove("hidden");
+  };
+}
+
+const cancelHostBtn = document.getElementById("cancel-host-btn");
+if (cancelHostBtn) {
+  cancelHostBtn.onclick = () => {
+    document.getElementById("host-setup-screen").classList.add("hidden");
+    document.getElementById("lobby-screen").classList.remove("hidden");
+  };
+}
 
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -187,60 +225,59 @@ function generateRoomCode() {
   return code;
 }
 
-document.getElementById("confirm-host-btn").onclick = () => {
-  const code = generateRoomCode();
-  const gameMode = document.getElementById("game-mode-select").value;
-  // Enforce strictly 2 players (Host + 1 Guest) for Chess
-  const maxPlayers = gameMode === "chess" ? 2 : (document.getElementById("max-players-input").value || 10);
-  const voiceChat = document.getElementById("voice-chat-toggle").checked;
+const confirmHostBtn = document.getElementById("confirm-host-btn");
+if (confirmHostBtn) {
+  confirmHostBtn.onclick = () => {
+    const code = generateRoomCode();
+    const gameModeSelect = document.getElementById("game-mode-select");
+    const gameMode = gameModeSelect ? gameModeSelect.value : "chess";
+    const maxPlayers = gameMode === "chess" ? 2 : 10;
 
-  isHost = true;
-  set(ref(db, `rooms/${code}`), {
-    gameMode,
-    maxPlayers,
-    voiceChat,
-    status: "waiting",
-    hostUid: currentUser.uid,
-    activeLetter: "",
-    claimedLetters: {},
-    buzzerWinner: ""
-  });
+    isHost = true;
+    set(ref(db, `rooms/${code}`), {
+      gameMode,
+      maxPlayers,
+      status: "waiting",
+      hostUid: currentUser.uid
+    });
 
-  enterRoom(code);
-};
+    enterRoom(code);
+  };
+}
 
-document.getElementById("join-room-btn").onclick = async () => {
-  const code = document.getElementById("room-code-input").value.trim().toUpperCase();
-  if (code.length !== 6) return alert("الرمز يجب أن يكون مكوناً من 6 خانات");
+const joinRoomBtn = document.getElementById("join-room-btn");
+if (joinRoomBtn) {
+  joinRoomBtn.onclick = async () => {
+    const roomCodeInput = document.getElementById("room-code-input");
+    const code = roomCodeInput ? roomCodeInput.value.trim().toUpperCase() : "";
+    if (code.length !== 6) return alert("الرمز يجب أن يكون مكوناً من 6 خانات");
 
-  // Block extra guests if Chess room already has 2 players
-  try {
-    const snap = await get(ref(db, `rooms/${code}`));
-    if (!snap.exists()) {
-      return alert("الغرفة غير موجودة!");
-    }
-    const roomData = snap.val();
-    if (roomData.gameMode === "chess" && roomData.players) {
-      const playerCount = Object.keys(roomData.players).length;
-      if (playerCount >= 2 && !roomData.players[currentUser.uid]) {
-        return alert("غرفة الشطرنج ممتلئة! الحد الأقصى لاعب واحد فقط ضد المضيف.");
+    try {
+      const snap = await get(ref(db, `rooms/${code}`));
+      if (!snap.exists()) {
+        return alert("الغرفة غير موجودة!");
       }
+      const roomData = snap.val();
+      if (roomData.gameMode === "chess" && roomData.players) {
+        const playerCount = Object.keys(roomData.players).length;
+        if (playerCount >= 2 && !roomData.players[currentUser.uid]) {
+          return alert("غرفة الشطرنج ممتلئة! الحد الأقصى لاعب واحد فقط ضد المضيف.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
     }
-  } catch (err) {
-    console.error(err);
-  }
 
-  isHost = false;
-  enterRoom(code);
-};
+    isHost = false;
+    enterRoom(code);
+  };
+}
 
 function enterRoom(code) {
   currentRoom = code;
   document.getElementById("lobby-screen").classList.add("hidden");
   document.getElementById("host-setup-screen").classList.add("hidden");
   document.getElementById("game-screen").classList.remove("hidden");
-  document.getElementById("display-room-code").innerText = `Room: ${code}`;
-  document.getElementById("role-badge").innerText = isHost ? "🎙️ Host" : "🎮 Player";
 
   const playerRef = ref(db, `rooms/${code}/players/${currentUser.uid}`);
   set(playerRef, {
@@ -250,11 +287,13 @@ function enterRoom(code) {
   });
   onDisconnect(playerRef).remove();
 
-  if (isHost) {
-    document.getElementById("start-game-btn").classList.remove("hidden");
-    document.getElementById("reset-buzzer-btn").classList.remove("hidden");
-  } else {
-    document.getElementById("buzzer-btn").classList.remove("hidden");
+  const startGameBtn = document.getElementById("start-game-btn");
+  if (startGameBtn) {
+    if (isHost) {
+      startGameBtn.classList.remove("hidden");
+    } else {
+      startGameBtn.classList.add("hidden");
+    }
   }
 
   onValue(ref(db, `rooms/${code}`), (snap) => {
@@ -262,113 +301,66 @@ function enterRoom(code) {
     if (!data) return;
 
     const rosterList = document.getElementById("players-list");
-    rosterList.innerHTML = "";
-    if (data.players) {
-      Object.entries(data.players).forEach(([uid, p]) => {
-        const li = document.createElement("li");
-        li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
-        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role})</span>`;
-        rosterList.appendChild(li);
-      });
+    if (rosterList) {
+      rosterList.innerHTML = "";
+      if (data.players) {
+        Object.entries(data.players).forEach(([uid, p]) => {
+          const li = document.createElement("li");
+          li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #0f172a; padding: 8px; border-radius: 8px;";
+          li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role})</span>`;
+          rosterList.appendChild(li);
+        });
+      }
     }
 
     if (data.status === "playing") {
-      // Transition to a clean game-only view (keeping only top-left avatar & top-right menu)
-      document.getElementById("waiting-lobby").classList.add("hidden");
-      document.getElementById("active-game-container").classList.remove("hidden");
+      const waitingLobby = document.getElementById("waiting-lobby");
+      if (waitingLobby) waitingLobby.classList.add("hidden");
       
-      const mainHeader = document.querySelector("header");
+      const activeGameContainer = document.getElementById("active-game-container");
+      if (activeGameContainer) activeGameContainer.classList.remove("hidden");
+      
+      const mainHeader = document.getElementById("main-header");
       if (mainHeader) mainHeader.classList.add("hidden");
+      
       const mainFooter = document.querySelector("footer");
       if (mainFooter) mainFooter.classList.add("hidden");
-      const roomHeader = document.querySelector(".room-header");
-      if (roomHeader) roomHeader.classList.add("hidden");
-      const quitBtn = document.getElementById("quit-room-btn");
-      if (quitBtn) quitBtn.classList.add("hidden");
 
       if (data.gameMode === "chess") {
         initChessGame(db, code, isHost, currentUser);
-      } else if (data.gameMode === "horouf") {
-        renderGrid(data.activeLetter, data.claimedLetters || {});
-        const banner = document.getElementById("status-banner");
-        if (data.buzzerWinner) {
-          banner.innerText = `🔔 أسرع إجابة: ${data.buzzerWinner}!`;
-          banner.style.borderColor = "#ef4444";
-        } else if (data.activeLetter) {
-          banner.innerText = `الحرف المختار: [ ${data.activeLetter} ]`;
-          banner.style.borderColor = "#f59e0b";
-        } else {
-          banner.innerText = "اختر حرفاً من اللوحة للبدء!";
-          banner.style.borderColor = "#334155";
-        }
       }
     }
   });
 }
 
-document.getElementById("quit-room-btn").onclick = () => {
-  if (currentRoom) {
-    remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
-    currentRoom = null;
-  }
-  const mainHeader = document.querySelector("header");
-  if (mainHeader) mainHeader.classList.remove("hidden");
-  const mainFooter = document.querySelector("footer");
-  if (mainFooter) mainFooter.classList.remove("hidden");
-  const roomHeader = document.querySelector(".room-header");
-  if (roomHeader) roomHeader.classList.remove("hidden");
-  const quitBtn = document.getElementById("quit-room-btn");
-  if (quitBtn) quitBtn.classList.remove("hidden");
-
-  document.getElementById("game-screen").classList.add("hidden");
-  document.getElementById("active-game-container").classList.add("hidden");
-  document.getElementById("waiting-lobby").classList.remove("hidden");
-  document.getElementById("start-game-btn").classList.add("hidden");
-  document.getElementById("buzzer-btn").classList.add("hidden");
-  document.getElementById("reset-buzzer-btn").classList.add("hidden");
-  document.getElementById("lobby-screen").classList.remove("hidden");
-};
-
-document.getElementById("start-game-btn").onclick = () => {
-  if (!isHost) return;
-  update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
-};
-
-function renderGrid(activeLetter, claimedLetters) {
-  const grid = document.getElementById("letter-grid");
-  grid.innerHTML = "";
-  letters.forEach(letter => {
-    const btn = document.createElement("button");
-    btn.className = "letter-tile";
-    if (claimedLetters && claimedLetters[letter]) {
-      btn.classList.add("claimed");
-    } else if (letter === activeLetter) {
-      btn.classList.add("active");
+const quitRoomBtn = document.getElementById("quit-room-btn");
+if (quitRoomBtn) {
+  quitRoomBtn.onclick = () => {
+    if (currentRoom) {
+      remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
+      currentRoom = null;
     }
-    btn.innerText = letter;
+    const mainHeader = document.getElementById("main-header");
+    if (mainHeader) mainHeader.classList.remove("hidden");
+    
+    const mainFooter = document.querySelector("footer");
+    if (mainFooter) mainFooter.classList.remove("hidden");
 
-    btn.onclick = () => {
-      if (!isHost) return;
-      if (activeLetter === letter) {
-        update(ref(db, `rooms/${currentRoom}/claimedLetters`), { [letter]: true });
-        update(ref(db, `rooms/${currentRoom}`), { activeLetter: "", buzzerWinner: "" });
-      } else {
-        update(ref(db, `rooms/${currentRoom}`), { activeLetter: letter, buzzerWinner: "" });
-      }
-    };
-    grid.appendChild(btn);
-  });
+    document.getElementById("game-screen").classList.add("hidden");
+    document.getElementById("active-game-container").classList.add("hidden");
+    document.getElementById("waiting-lobby").classList.remove("hidden");
+    
+    const startGameBtn = document.getElementById("start-game-btn");
+    if (startGameBtn) startGameBtn.classList.add("hidden");
+    
+    document.getElementById("lobby-screen").classList.remove("hidden");
+  };
 }
 
-document.getElementById("buzzer-btn").onclick = () => {
-  const name = currentProfile.name;
-  onValue(ref(db, `rooms/${currentRoom}/buzzerWinner`), (snap) => {
-    if (!snap.val()) {
-      update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: name });
-    }
-  }, { onlyOnce: true });
-};
-
-document.getElementById("reset-buzzer-btn").onclick = () => {
-  update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: "" });
-};
+const startGameBtn = document.getElementById("start-game-btn");
+if (startGameBtn) {
+  startGameBtn.onclick = () => {
+    if (!isHost) return;
+    update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
+  };
+}
