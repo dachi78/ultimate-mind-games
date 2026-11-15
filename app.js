@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, setPersistence, browserLocalPersistence, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
 import { getDatabase, ref, set, update, onValue, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
-import { initChessGame } from "./games/chess.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDh02-Eb7qpWavevk9xrt3h0Jbwb5vI8s",
@@ -22,7 +21,8 @@ let currentProfile = { name: "", avatar: "" };
 let currentRoom = null;
 let isHost = false;
 let uploadedAvatarBase64 = null;
-let chessInitialized = false;
+
+const letters = ['أ','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'];
 
 // Set Persistence & Listen for Auth State Changes
 setPersistence(auth, browserLocalPersistence).catch((err) => {
@@ -35,6 +35,7 @@ onAuthStateChanged(auth, async (user) => {
     const defaultName = user.displayName || "Guest-" + user.uid.slice(0, 4);
     const defaultAvatar = user.photoURL || "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png";
 
+    // Check Realtime Database for custom saved name/avatar
     try {
       const snap = await get(ref(db, `users/${user.uid}`));
       if (snap.exists()) {
@@ -60,7 +61,6 @@ onAuthStateChanged(auth, async (user) => {
     currentProfile = { name: "", avatar: "" };
     currentRoom = null;
     isHost = false;
-    chessInitialized = false;
 
     document.getElementById("user-profile-bar").classList.add("hidden");
     document.getElementById("lobby-screen").classList.add("hidden");
@@ -112,7 +112,7 @@ document.getElementById("close-friends-btn").onclick = () => {
   document.getElementById("friends-modal").classList.add("hidden");
 };
 document.getElementById("settings-menu-btn").onclick = () => {
-  alert("قريباً: إعدادات الصوت والوضع الليلي!");
+  alert("قريباً: إعدادات الصوت، والوضع الليلي المتقدم، وتخصيص اللعبة!");
 };
 
 // Profile Customization Modal & Image Compression Handler
@@ -126,6 +126,7 @@ document.getElementById("cancel-profile-btn").onclick = () => {
   document.getElementById("edit-profile-modal").classList.add("hidden");
 };
 
+// Compress uploaded image to 96x96 JPEG so it stores cleanly in Firebase RTDB
 document.getElementById("avatar-file-input").onchange = (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -154,7 +155,10 @@ document.getElementById("save-profile-btn").onclick = async () => {
   const finalAvatar = uploadedAvatarBase64 || currentProfile.avatar;
 
   try {
+    // Save name to Firebase Auth (short string, no URL limit issue)
     await updateProfile(currentUser, { displayName: newName });
+
+    // Save both name and compressed avatar to Realtime Database
     currentProfile = { name: newName, avatar: finalAvatar };
     await set(ref(db, `users/${currentUser.uid}`), currentProfile);
 
@@ -185,6 +189,7 @@ document.getElementById("cancel-host-btn").onclick = () => {
   document.getElementById("lobby-screen").classList.remove("hidden");
 };
 
+// Generate 6-Digit Alphanumeric Room Code
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -197,16 +202,20 @@ function generateRoomCode() {
 // Confirm Host Setup & Create Room
 document.getElementById("confirm-host-btn").onclick = () => {
   const code = generateRoomCode();
+  const gameMode = document.getElementById("game-mode-select").value;
   const maxPlayers = document.getElementById("max-players-input").value;
   const voiceChat = document.getElementById("voice-chat-toggle").checked;
 
   isHost = true;
   set(ref(db, `rooms/${code}`), {
-    gameMode: "chess",
+    gameMode,
     maxPlayers,
     voiceChat,
     status: "waiting",
-    hostUid: currentUser.uid
+    hostUid: currentUser.uid,
+    activeLetter: "",
+    claimedLetters: {},
+    buzzerWinner: ""
   });
 
   enterRoom(code);
@@ -222,7 +231,6 @@ document.getElementById("join-room-btn").onclick = () => {
 
 function enterRoom(code) {
   currentRoom = code;
-  chessInitialized = false;
   document.getElementById("lobby-screen").classList.add("hidden");
   document.getElementById("host-setup-screen").classList.add("hidden");
   document.getElementById("game-screen").classList.remove("hidden");
@@ -239,8 +247,9 @@ function enterRoom(code) {
 
   if (isHost) {
     document.getElementById("start-game-btn").classList.remove("hidden");
+    document.getElementById("reset-buzzer-btn").classList.remove("hidden");
   } else {
-    document.getElementById("start-game-btn").classList.add("hidden");
+    document.getElementById("buzzer-btn").classList.remove("hidden");
   }
 
   onValue(ref(db, `rooms/${code}`), (snap) => {
@@ -275,9 +284,17 @@ function enterRoom(code) {
       document.getElementById("waiting-lobby").classList.add("hidden");
       document.getElementById("active-game-container").classList.remove("hidden");
 
-      if (!chessInitialized) {
-        chessInitialized = true;
-        initChessGame(db, code, isHost, currentUser);
+      renderGrid(data.activeLetter, data.claimedLetters || {});
+      const banner = document.getElementById("status-banner");
+      if (data.buzzerWinner) {
+        banner.innerText = `🔔 أسرع إجابة: ${data.buzzerWinner}!`;
+        banner.style.borderColor = "#ef4444";
+      } else if (data.activeLetter) {
+        banner.innerText = `الحرف المختار: [ ${data.activeLetter} ]`;
+        banner.style.borderColor = "#f59e0b";
+      } else {
+        banner.innerText = "اختر حرفاً من اللوحة للبدء!";
+        banner.style.borderColor = "#334155";
       }
     }
   });
@@ -289,11 +306,12 @@ document.getElementById("quit-room-btn").onclick = () => {
     remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
     currentRoom = null;
   }
-  chessInitialized = false;
   document.getElementById("game-screen").classList.add("hidden");
   document.getElementById("active-game-container").classList.add("hidden");
   document.getElementById("waiting-lobby").classList.remove("hidden");
   document.getElementById("start-game-btn").classList.add("hidden");
+  document.getElementById("buzzer-btn").classList.add("hidden");
+  document.getElementById("reset-buzzer-btn").classList.add("hidden");
   document.getElementById("lobby-screen").classList.remove("hidden");
 };
 
@@ -301,4 +319,45 @@ document.getElementById("quit-room-btn").onclick = () => {
 document.getElementById("start-game-btn").onclick = () => {
   if (!isHost) return;
   update(ref(db, `rooms/${currentRoom}`), { status: "playing" });
+};
+
+// Horouf Letter Grid Render & Interaction
+function renderGrid(activeLetter, claimedLetters) {
+  const grid = document.getElementById("letter-grid");
+  grid.innerHTML = "";
+  letters.forEach(letter => {
+    const btn = document.createElement("button");
+    btn.className = "letter-tile";
+    if (claimedLetters && claimedLetters[letter]) {
+      btn.classList.add("claimed");
+    } else if (letter === activeLetter) {
+      btn.classList.add("active");
+    }
+    btn.innerText = letter;
+
+    btn.onclick = () => {
+      if (!isHost) return;
+      if (activeLetter === letter) {
+        update(ref(db, `rooms/${currentRoom}/claimedLetters`), { [letter]: true });
+        update(ref(db, `rooms/${currentRoom}`), { activeLetter: "", buzzerWinner: "" });
+      } else {
+        update(ref(db, `rooms/${currentRoom}`), { activeLetter: letter, buzzerWinner: "" });
+      }
+    };
+    grid.appendChild(btn);
+  });
+}
+
+// Buzzer Handlers
+document.getElementById("buzzer-btn").onclick = () => {
+  const name = currentProfile.name;
+  onValue(ref(db, `rooms/${currentRoom}/buzzerWinner`), (snap) => {
+    if (!snap.val()) {
+      update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: name });
+    }
+  }, { onlyOnce: true });
+};
+
+document.getElementById("reset-buzzer-btn").onclick = () => {
+  update(ref(db, `rooms/${currentRoom}`), { buzzerWinner: "" });
 };
