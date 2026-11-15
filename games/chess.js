@@ -1,23 +1,16 @@
 import { ref, update } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
-export function createChessGame(containerId, db, currentRoom, isHost, currentUser) {
+export function createChessGame({ boardContainerId, statusContainerId, db, currentRoom, isHost }) {
   let chessGame = new Chess();
   let selectedSquare = null;
 
   function render(data, playersCount) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.innerHTML = "";
+    const boardEl = document.getElementById(boardContainerId);
+    const statusEl = document.getElementById(statusContainerId);
+    if (!boardEl || !statusEl) return;
 
-    const boardWrapper = document.createElement("div");
-    boardWrapper.style.cssText = "display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 15px; box-sizing: border-box;";
+    boardEl.innerHTML = "";
 
-    // Status banner
-    const statusEl = document.createElement("div");
-    statusEl.id = "chess-status";
-    statusEl.className = "banner";
-    statusEl.style.cssText = "margin-bottom: 12px; padding: 10px 16px; text-align: center; border: 1px solid #334155; border-radius: 8px; font-weight: bold; background: #1e293b; color: #f8fafc; width: 100%; max-width: 420px; font-size: 0.95rem;";
-    
     const isAlone = playersCount < 2;
     if (chessGame.in_checkmate()) {
       statusEl.innerText = `🏁 انتهت اللعبة: مات الملك (Checkmate)!`;
@@ -27,13 +20,9 @@ export function createChessGame(containerId, db, currentRoom, isHost, currentUse
       statusEl.style.borderColor = "#f59e0b";
     } else {
       const turnName = chessGame.turn() === 'w' ? 'الأبيض (White)' : 'الأسود (Black)';
-      statusEl.innerText = `دور اللاعب: ${turnName} ${isAlone ? '(وضع فردي: تتحكم بالطرفين)' : ''} ${chessGame.in_check() ? '⚠️ (تحذير كيش!)' : ''}`;
+      statusEl.innerText = `دور اللاعب: ${turnName} ${isAlone ? '(وضع فردي: تحكم بالطرفين)' : ''} ${chessGame.in_check() ? '⚠️ (تحذير كيش!)' : ''}`;
+      statusEl.style.borderColor = "#334155";
     }
-    boardWrapper.appendChild(statusEl);
-
-    // Chess Board Element
-    const boardEl = document.createElement("div");
-    boardEl.style.cssText = "display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: min(85vw, 420px); aspect-ratio: 1/1; border: 4px solid #334155; border-radius: 8px; user-select: none; box-shadow: 0 10px 25px rgba(0,0,0,0.5);";
 
     const board = chessGame.board();
     for (let r = 0; r < 8; r++) {
@@ -75,44 +64,15 @@ export function createChessGame(containerId, db, currentRoom, isHost, currentUse
         boardEl.appendChild(squareEl);
       }
     }
-    boardWrapper.appendChild(boardEl);
-
-    // Controls container (Reset & Quit)
-    const controlsDiv = document.createElement("div");
-    controlsDiv.style.cssText = "display: flex; gap: 10px; width: 100%; max-width: min(85vw, 420px); margin-top: 15px;";
-
-    if (isHost) {
-      const resetBtn = document.createElement("button");
-      resetBtn.className = "btn secondary";
-      resetBtn.innerText = "🔄 إعادة تعيين";
-      resetBtn.style.flex = "1";
-      resetBtn.onclick = () => {
-        chessGame.reset();
-        update(ref(db, `rooms/${currentRoom}`), { chessFEN: chessGame.fen() });
-      };
-      controlsDiv.appendChild(resetBtn);
-    }
-
-    const quitBtn = document.createElement("button");
-    quitBtn.className = "btn secondary";
-    quitBtn.innerText = "🚪 مغادرة اللعبة";
-    quitBtn.style.cssText = "flex: 1; background: #ef4444; color: white;";
-    quitBtn.onclick = () => {
-      document.getElementById("fullscreen-game-overlay").classList.add("hidden");
-      document.getElementById("quit-room-btn").click();
-    };
-    controlsDiv.appendChild(quitBtn);
-
-    boardWrapper.appendChild(controlsDiv);
-    container.appendChild(boardWrapper);
   }
 
   function handleSquareClick(square, playersCount) {
     const myColor = isHost ? 'w' : 'b';
-    const isAlone = playersCount < 2; // إذا لم ينضم ضيف، يمكنك اللعب بالطرفين الأبيض والأسود
+    const isAlone = playersCount < 2;
 
+    // إذا وجد خصم متصل، قيّد الحركة بحسب دورك
     if (!isAlone && chessGame.turn() !== myColor) {
-      return; // ليس دورك ولديك خصم معنا في الغرفة
+      return; 
     }
 
     const pieceAtSquare = chessGame.get(square);
