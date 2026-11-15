@@ -3,6 +3,13 @@ import { ref, update } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-
 export function createChessGame({ boardContainerId, statusContainerId, db, currentRoom, isHost }) {
   let chessGame = new Chess();
   let selectedSquare = null;
+  let legalMoves = [];
+
+  function getSquareCoord(squareName) {
+    const file = squareName.charCodeAt(0) - 97; // 'a' -> 0
+    const rank = 8 - parseInt(squareName[1], 10); // '8' -> 0
+    return { r: rank, c: file };
+  }
 
   function render(data, playersCount) {
     const boardEl = document.getElementById(boardContainerId);
@@ -25,6 +32,7 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
     }
 
     const board = chessGame.board();
+
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
         const squareEl = document.createElement("div");
@@ -33,15 +41,33 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
         const rank = '87654321'[r];
         const squareName = file + rank;
 
+        const isSelected = selectedSquare === squareName;
+        const isLegalTarget = legalMoves.some(m => m.to === squareName);
+
         squareEl.style.cssText = `
-          background: ${isDark ? '#b58863' : '#f0d9b5'};
+          background: ${isSelected ? '#769656' : (isDark ? '#b58863' : '#f0d9b5')};
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: clamp(1.5rem, 5vw, 2.3rem);
+          font-size: clamp(2rem, 5.5vw, 3.8rem);
           cursor: pointer;
           position: relative;
+          user-select: none;
         `;
+
+        // Legal move indicator dot
+        if (isLegalTarget) {
+          const indicator = document.createElement("div");
+          indicator.style.cssText = `
+            position: absolute;
+            width: 26%;
+            height: 26%;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            pointer-events: none;
+          `;
+          squareEl.appendChild(indicator);
+        }
 
         const piece = board[r][c];
         if (piece) {
@@ -49,15 +75,11 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
             p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚',
             P: '♙', R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔'
           };
-          squareEl.innerText = symbols[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
-          squareEl.style.color = piece.color === 'w' ? '#ffffff' : '#0f172a';
-          squareEl.style.textShadow = piece.color === 'w' ? '0 1px 3px rgba(0,0,0,0.9)' : '0 1px 2px rgba(255,255,255,0.4)';
-        }
-
-        if (selectedSquare === squareName) {
-          squareEl.style.outline = '3px solid #38bdf8';
-          squareEl.style.outlineOffset = '-3px';
-          squareEl.style.background = '#769656';
+          const pieceSpan = document.createElement("span");
+          pieceSpan.innerText = symbols[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
+          pieceSpan.style.color = piece.color === 'w' ? '#ffffff' : '#0f172a';
+          pieceSpan.style.textShadow = piece.color === 'w' ? '0 2px 4px rgba(0,0,0,0.8)' : '0 1px 3px rgba(255,255,255,0.4)';
+          squareEl.appendChild(pieceSpan);
         }
 
         squareEl.onclick = () => handleSquareClick(squareName, playersCount);
@@ -70,19 +92,29 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
     const myColor = isHost ? 'w' : 'b';
     const isAlone = playersCount < 2;
 
-    // إذا وجد خصم متصل، قيّد الحركة بحسب دورك
     if (!isAlone && chessGame.turn() !== myColor) {
       return; 
     }
 
-    const pieceAtSquare = chessGame.get(square);
+    const { r, c } = getSquareCoord(square);
+    const board = chessGame.board();
+    const pieceAtSquare = board[r][c];
 
     if (!selectedSquare) {
       if (pieceAtSquare && (isAlone || pieceAtSquare.color === chessGame.turn())) {
         selectedSquare = square;
+        legalMoves = chessGame.moves({ square: square, verbose: true });
         render(null, playersCount);
       }
     } else {
+      // If clicking own piece, change selection
+      if (pieceAtSquare && (isAlone || pieceAtSquare.color === chessGame.turn())) {
+        selectedSquare = square;
+        legalMoves = chessGame.moves({ square: square, verbose: true });
+        render(null, playersCount);
+        return;
+      }
+
       const move = chessGame.move({
         from: selectedSquare,
         to: square,
@@ -90,14 +122,13 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
       });
 
       selectedSquare = null;
+      legalMoves = [];
+
       if (move) {
         update(ref(db, `rooms/${currentRoom}`), {
           chessFEN: chessGame.fen()
         });
       } else {
-        if (pieceAtSquare && (isAlone || pieceAtSquare.color === chessGame.turn())) {
-          selectedSquare = square;
-        }
         render(null, playersCount);
       }
     }
@@ -113,6 +144,7 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
     reset() {
       chessGame.reset();
       selectedSquare = null;
+      legalMoves = [];
     }
   };
 }
