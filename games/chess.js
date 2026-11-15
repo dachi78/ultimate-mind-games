@@ -1,13 +1,13 @@
 import { ref, update } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
-export function createChessGame({ boardContainerId, statusContainerId, db, currentRoom, isHost }) {
+export function createChessGame({ boardContainerId, statusContainerId, db, currentRoom, isHost, players, myColor }) {
   let chessGame = new Chess();
   let selectedSquare = null;
   let legalMoves = [];
 
   function getSquareCoord(squareName) {
-    const file = squareName.charCodeAt(0) - 97; // 'a' -> 0
-    const rank = 8 - parseInt(squareName[1], 10); // '8' -> 0
+    const file = squareName.charCodeAt(0) - 97;
+    const rank = 8 - parseInt(squareName[1], 10);
     return { r: rank, c: file };
   }
 
@@ -18,17 +18,48 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
 
     boardEl.innerHTML = "";
 
+    // Identify players for White and Black
+    const playerArray = Object.values(players || {});
+    let whitePlayer = playerArray.find(p => p.color === 'white') || playerArray[0];
+    let blackPlayer = playerArray.find(p => p.color === 'black') || playerArray[1];
+
+    if (!whitePlayer && playerArray.length > 0) whitePlayer = playerArray[0];
+    // If playing alone, duplicate user for both sides
+    if (!blackPlayer) blackPlayer = whitePlayer;
+
+    // Render White Player Info in Top Bar
+    const whiteDisplay = document.getElementById("player-white-display");
+    if (whiteDisplay && whitePlayer) {
+      whiteDisplay.innerHTML = `
+        <img src="${whitePlayer.photoURL || 'https://via.placeholder.com/28'}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid #38bdf8;">
+        <span style="max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${whitePlayer.name} (⚪)</span>
+        <span title="ميكروفون نشط" style="cursor:pointer; font-size:0.8rem;">🎙️</span>
+        <span title="سماعة نشطة" style="cursor:pointer; font-size:0.8rem;">🔊</span>
+      `;
+    }
+
+    // Render Black Player Info in Top Bar
+    const blackDisplay = document.getElementById("player-black-display");
+    if (blackDisplay && blackPlayer) {
+      blackDisplay.innerHTML = `
+        <span title="سماعة نشطة" style="cursor:pointer; font-size:0.8rem;">🔊</span>
+        <span title="ميكروفون نشط" style="cursor:pointer; font-size:0.8rem;">🎙️</span>
+        <span style="max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">(⚫) ${blackPlayer.name}</span>
+        <img src="${blackPlayer.photoURL || 'https://via.placeholder.com/28'}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid #38bdf8;">
+      `;
+    }
+
     const isAlone = playersCount < 2;
     if (chessGame.in_checkmate()) {
-      statusEl.innerText = `🏁 انتهت اللعبة: مات الملك (Checkmate)!`;
-      statusEl.style.borderColor = "#ef4444";
+      statusEl.innerText = `🏁 مات الملك (Checkmate)!`;
+      statusEl.style.color = "#ef4444";
     } else if (chessGame.in_draw()) {
-      statusEl.innerText = `🤝 انتهت اللعبة بالتعادل (Draw)!`;
-      statusEl.style.borderColor = "#f59e0b";
+      statusEl.innerText = `🤝 تعادل (Draw)!`;
+      statusEl.style.color = "#f59e0b";
     } else {
       const turnName = chessGame.turn() === 'w' ? 'الأبيض (White)' : 'الأسود (Black)';
-      statusEl.innerText = `دور اللاعب: ${turnName} ${isAlone ? '(وضع فردي: تحكم بالطرفين)' : ''} ${chessGame.in_check() ? '⚠️ (تحذير كيش!)' : ''}`;
-      statusEl.style.borderColor = "#334155";
+      statusEl.innerText = `دور: ${turnName} ${isAlone ? '(تدريب فردي)' : ''} ${chessGame.in_check() ? '⚠️ (كيش!)' : ''}`;
+      statusEl.style.color = "#38bdf8";
     }
 
     const board = chessGame.board();
@@ -49,20 +80,19 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: clamp(2rem, 5.5vw, 3.8rem);
+          font-size: clamp(1.8rem, 4.5vw, 3.2rem);
           cursor: pointer;
           position: relative;
           user-select: none;
         `;
 
-        // Legal move indicator dot
         if (isLegalTarget) {
           const indicator = document.createElement("div");
           indicator.style.cssText = `
             position: absolute;
-            width: 26%;
-            height: 26%;
-            background: rgba(0, 0, 0, 0.3);
+            width: 24%;
+            height: 24%;
+            background: rgba(0, 0, 0, 0.35);
             border-radius: 50%;
             pointer-events: none;
           `;
@@ -89,10 +119,10 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
   }
 
   function handleSquareClick(square, playersCount) {
-    const myColor = isHost ? 'w' : 'b';
+    const myAssignedColor = myColor || (isHost ? 'w' : 'b');
     const isAlone = playersCount < 2;
 
-    if (!isAlone && chessGame.turn() !== myColor) {
+    if (!isAlone && chessGame.turn() !== myAssignedColor[0]) {
       return; 
     }
 
@@ -107,7 +137,6 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
         render(null, playersCount);
       }
     } else {
-      // If clicking own piece, change selection
       if (pieceAtSquare && (isAlone || pieceAtSquare.color === chessGame.turn())) {
         selectedSquare = square;
         legalMoves = chessGame.moves({ square: square, verbose: true });
@@ -140,11 +169,6 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
         chessGame.load(data.chessFEN);
       }
       render(data, playersCount);
-    },
-    reset() {
-      chessGame.reset();
-      selectedSquare = null;
-      legalMoves = [];
     }
   };
 }
