@@ -300,22 +300,30 @@ function enterRoom(code) {
   });
 }
 
-// In-Game Color Selection Handlers (Auto-assigns the other color automatically and closes popup)
+// In-Game Color Selection Handlers (Auto-assigns the other color to the opponent instantly without reload)
 document.getElementById("claim-white-btn").onclick = () => {
   myAssignedColor = 'white';
   const updates = { 'seats/white': currentUser.uid };
-  // If black seat is empty, automatically assign it if needed or let others take it
+  // Automatically assign black to the other player if available
+  const activePlayers = document.querySelectorAll('#players-list li');
+  if (activePlayers.length < 2) {
+    updates['seats/black'] = currentUser.uid; // Solo training fallback
+  }
   update(ref(db, `rooms/${currentRoom}`), updates);
   document.getElementById("in-game-color-modal").classList.add("hidden");
-  location.reload(); // Refresh instance view with chosen color
 };
 
 document.getElementById("claim-black-btn").onclick = () => {
   myAssignedColor = 'black';
   const updates = { 'seats/black': currentUser.uid };
+  const activePlayers = document.querySelectorAll('#players-list li');
+  if (activePlayers.length < 2) {
+    updates['seats/white'] = currentUser.uid; // Solo training fallback
+  } else {
+    updates['seats/white'] = isHost ? auth.currentUser.uid : "other"; // Assign white to other
+  }
   update(ref(db, `rooms/${currentRoom}`), updates);
   document.getElementById("in-game-color-modal").classList.add("hidden");
-  location.reload(); // Refresh instance view with chosen color
 };
 
 // Rematch Button Handler
