@@ -187,7 +187,7 @@ function generateRoomCode() {
   return code;
 }
 
-// Show Color Selection Modal before confirming host setup
+// Show Color Selection Modal
 document.getElementById("confirm-host-btn").onclick = () => {
   document.getElementById("color-selection-modal").classList.remove("hidden");
 };
@@ -228,7 +228,7 @@ document.getElementById("join-room-btn").onclick = () => {
   const code = document.getElementById("room-code-input").value.trim().toUpperCase();
   if (code.length !== 6) return alert("الرمز يجب أن يكون مكوناً من 6 خانات");
   isHost = false;
-  selectedColor = "black"; // Default joiner color
+  selectedColor = "black";
   enterRoom(code);
 };
 
