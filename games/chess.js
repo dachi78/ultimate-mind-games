@@ -18,35 +18,42 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
 
     boardEl.innerHTML = "";
 
-    // Identify players for White and Black
     const playerArray = Object.values(players || {});
     let whitePlayer = playerArray.find(p => p.color === 'white') || playerArray[0];
     let blackPlayer = playerArray.find(p => p.color === 'black') || playerArray[1];
 
     if (!whitePlayer && playerArray.length > 0) whitePlayer = playerArray[0];
-    // If playing alone, duplicate user for both sides
     if (!blackPlayer) blackPlayer = whitePlayer;
 
-    // Render White Player Info in Top Bar
+    // Interactive Mic & Speaker states
+    const toggleVoice = (e, type) => {
+      e.target.style.opacity = e.target.style.opacity === '0.4' ? '1' : '0.4';
+    };
+
+    // Render White Player Info
     const whiteDisplay = document.getElementById("player-white-display");
     if (whiteDisplay && whitePlayer) {
       whiteDisplay.innerHTML = `
-        <img src="${whitePlayer.photoURL || 'https://via.placeholder.com/28'}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid #38bdf8;">
-        <span style="max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${whitePlayer.name} (⚪)</span>
-        <span title="ميكروفون نشط" style="cursor:pointer; font-size:0.8rem;">🎙️</span>
-        <span title="سماعة نشطة" style="cursor:pointer; font-size:0.8rem;">🔊</span>
+        <img src="${whitePlayer.photoURL || 'https://via.placeholder.com/32'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #38bdf8;">
+        <span style="max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold;">${whitePlayer.name} (⚪)</span>
+        <span class="mic-icon" title="ميكروفون" style="cursor:pointer; font-size:0.85rem; margin-left:4px;">🎙️</span>
+        <span class="spk-icon" title="سماعة" style="cursor:pointer; font-size:0.85rem;">🔊</span>
       `;
+      whiteDisplay.querySelector('.mic-icon').onclick = (e) => toggleVoice(e, 'mic');
+      whiteDisplay.querySelector('.spk-icon').onclick = (e) => toggleVoice(e, 'spk');
     }
 
-    // Render Black Player Info in Top Bar
+    // Render Black Player Info
     const blackDisplay = document.getElementById("player-black-display");
     if (blackDisplay && blackPlayer) {
       blackDisplay.innerHTML = `
-        <span title="سماعة نشطة" style="cursor:pointer; font-size:0.8rem;">🔊</span>
-        <span title="ميكروفون نشط" style="cursor:pointer; font-size:0.8rem;">🎙️</span>
-        <span style="max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">(⚫) ${blackPlayer.name}</span>
-        <img src="${blackPlayer.photoURL || 'https://via.placeholder.com/28'}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid #38bdf8;">
+        <span class="spk-icon" title="سماعة" style="cursor:pointer; font-size:0.85rem; margin-right:4px;">🔊</span>
+        <span class="mic-icon" title="ميكروفون" style="cursor:pointer; font-size:0.85rem;">🎙️</span>
+        <span style="max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold;">(⚫) ${blackPlayer.name}</span>
+        <img src="${blackPlayer.photoURL || 'https://via.placeholder.com/32'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #38bdf8;">
       `;
+      blackDisplay.querySelector('.mic-icon').onclick = (e) => toggleVoice(e, 'mic');
+      blackDisplay.querySelector('.spk-icon').onclick = (e) => toggleVoice(e, 'spk');
     }
 
     const isAlone = playersCount < 2;
@@ -80,7 +87,7 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: clamp(1.8rem, 4.5vw, 3.2rem);
+          font-size: clamp(2rem, 5.5vw, 4.2rem);
           cursor: pointer;
           position: relative;
           user-select: none;
@@ -90,9 +97,9 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
           const indicator = document.createElement("div");
           indicator.style.cssText = `
             position: absolute;
-            width: 24%;
-            height: 24%;
-            background: rgba(0, 0, 0, 0.35);
+            width: 26%;
+            height: 26%;
+            background: rgba(0, 0, 0, 0.4);
             border-radius: 50%;
             pointer-events: none;
           `;
@@ -119,45 +126,47 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
   }
 
   function handleSquareClick(square, playersCount) {
-    const myAssignedColor = myColor || (isHost ? 'w' : 'b');
+    const myAssignedColor = myColor || (isHost ? 'white' : 'black');
+    const myTurnLetter = myAssignedColor === 'white' ? 'w' : 'b';
     const isAlone = playersCount < 2;
 
-    if (!isAlone && chessGame.turn() !== myAssignedColor[0]) {
+    if (!isAlone && chessGame.turn() !== myTurnLetter) {
       return; 
     }
 
     const { r, c } = getSquareCoord(square);
     const board = chessGame.board();
-    const pieceAtSquare = board[r][c];
+    const clickedPiece = board[r][c];
 
     if (!selectedSquare) {
-      if (pieceAtSquare && (isAlone || pieceAtSquare.color === chessGame.turn())) {
+      if (clickedPiece && (isAlone || clickedPiece.color === chessGame.turn())) {
         selectedSquare = square;
         legalMoves = chessGame.moves({ square: square, verbose: true });
         render(null, playersCount);
       }
     } else {
-      if (pieceAtSquare && (isAlone || pieceAtSquare.color === chessGame.turn())) {
-        selectedSquare = square;
-        legalMoves = chessGame.moves({ square: square, verbose: true });
-        render(null, playersCount);
-        return;
-      }
-
+      // Attempt to make a move (including captures/elimination)
       const move = chessGame.move({
         from: selectedSquare,
         to: square,
         promotion: 'q'
       });
 
-      selectedSquare = null;
-      legalMoves = [];
-
       if (move) {
+        selectedSquare = null;
+        legalMoves = [];
         update(ref(db, `rooms/${currentRoom}`), {
           chessFEN: chessGame.fen()
         });
       } else {
+        // If move failed, check if clicking another own piece to switch selection
+        if (clickedPiece && (isAlone || clickedPiece.color === chessGame.turn())) {
+          selectedSquare = square;
+          legalMoves = chessGame.moves({ square: square, verbose: true });
+        } else {
+          selectedSquare = null;
+          legalMoves = [];
+        }
         render(null, playersCount);
       }
     }
