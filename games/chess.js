@@ -77,7 +77,6 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
     const board = chessGame.board();
     const isFlipped = myAssignedColor === 'black';
 
-    // If black, board is flipped so black pieces are at the bottom
     const rowIndices = isFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
     const colIndices = isFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
 
