@@ -21,7 +21,7 @@ let currentUser = null;
 let currentProfile = { name: "", avatar: "" };
 let currentRoom = null;
 let isHost = false;
-let selectedColor = "white";
+let myAssignedColor = null;
 let uploadedAvatarBase64 = null;
 let chessGameInstance = null;
 
@@ -187,28 +187,12 @@ function generateRoomCode() {
   return code;
 }
 
-// Show Color Selection Modal
 document.getElementById("confirm-host-btn").onclick = () => {
-  document.getElementById("color-selection-modal").classList.remove("hidden");
-};
-
-document.getElementById("pick-white-btn").onclick = () => {
-  selectedColor = "white";
-  document.getElementById("color-selection-modal").classList.add("hidden");
-  createRoomAndEnter();
-};
-
-document.getElementById("pick-black-btn").onclick = () => {
-  selectedColor = "black";
-  document.getElementById("color-selection-modal").classList.add("hidden");
-  createRoomAndEnter();
-};
-
-function createRoomAndEnter() {
   const code = generateRoomCode();
   const voiceChat = document.getElementById("voice-chat-toggle").checked;
 
   isHost = true;
+  myAssignedColor = null; // Will pick in-game
   const initialChess = new Chess();
   initialChess.reset();
 
@@ -222,13 +206,13 @@ function createRoomAndEnter() {
   });
 
   enterRoom(code);
-}
+};
 
 document.getElementById("join-room-btn").onclick = () => {
   const code = document.getElementById("room-code-input").value.trim().toUpperCase();
   if (code.length !== 6) return alert("الرمز يجب أن يكون مكوناً من 6 خانات");
   isHost = false;
-  selectedColor = "black";
+  myAssignedColor = null;
   enterRoom(code);
 };
 
@@ -238,14 +222,13 @@ function enterRoom(code) {
   document.getElementById("host-setup-screen").classList.add("hidden");
   document.getElementById("game-screen").classList.remove("hidden");
   document.getElementById("display-room-code").innerText = `Room: ${code}`;
-  document.getElementById("role-badge").innerText = isHost ? `🎙️ Host (${selectedColor})` : `🎮 Player (${selectedColor})`;
+  document.getElementById("role-badge").innerText = isHost ? "🎙️ Host" : "🎮 Player";
 
   const playerRef = ref(db, `rooms/${code}/players/${currentUser.uid}`);
   set(playerRef, {
     name: currentProfile.name,
     photoURL: currentProfile.avatar,
-    role: isHost ? "host" : "player",
-    color: selectedColor
+    role: isHost ? "host" : "player"
   });
   onDisconnect(playerRef).remove();
 
@@ -265,7 +248,7 @@ function enterRoom(code) {
       Object.entries(data.players).forEach(([uid, p]) => {
         const li = document.createElement("li");
         li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
-        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.color})</span>`;
+        li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role})</span>`;
         rosterList.appendChild(li);
       });
     }
@@ -275,21 +258,69 @@ function enterRoom(code) {
       document.getElementById("user-profile-bar").classList.add("hidden");
       document.getElementById("active-game-screen").classList.remove("hidden");
 
+      // Check if user has assigned color seat in DB
+      if (data.seats) {
+        if (data.seats.white === currentUser.uid) myAssignedColor = 'white';
+        else if (data.seats.black === currentUser.uid) myAssignedColor = 'black';
+      }
+
+      // If color not assigned yet, show in-game color selection modal
+      if (!myAssignedColor) {
+        document.getElementById("in-game-color-modal").classList.remove("hidden");
+        // Disable taken seat
+        if (data.seats && data.seats.white) {
+          document.getElementById("claim-white-btn").disabled = true;
+          document.getElementById("claim-white-btn").style.opacity = "0.4";
+        }
+        if (data.seats && data.seats.black) {
+          document.getElementById("claim-black-btn").disabled = true;
+          document.getElementById("claim-black-btn").style.opacity = "0.4";
+        }
+      } else {
+        document.getElementById("in-game-color-modal").classList.add("hidden");
+      }
+
       if (!chessGameInstance) {
         chessGameInstance = createChessGame({
           boardContainerId: "chess-board-container",
           statusContainerId: "chess-status",
           db,
           currentRoom,
-          isHost,
+          currentUser,
           players: data.players,
-          myColor: selectedColor
+          myAssignedColor: myAssignedColor || 'white',
+          onGameOver: (result) => {
+            document.getElementById("game-over-title").innerText = "🏁 نتيجة المباراة";
+            document.getElementById("game-over-message").innerText = result === "Checkmate!" ? "تم تحقيق كيش مات (Checkmate)! انتهت اللعبة." : "انتهت اللعبة بالتعادل.";
+            document.getElementById("game-over-modal").classList.remove("hidden");
+          }
         });
       }
       chessGameInstance.updateState(data, playersCount);
     }
   });
 }
+
+// In-Game Color Claim Handlers
+document.getElementById("claim-white-btn").onclick = () => {
+  myAssignedColor = 'white';
+  update(ref(db, `rooms/${currentRoom}/seats`), { white: currentUser.uid });
+  document.getElementById("in-game-color-modal").classList.add("hidden");
+};
+
+document.getElementById("claim-black-btn").onclick = () => {
+  myAssignedColor = 'black';
+  update(ref(db, `rooms/${currentRoom}/seats`), { black: currentUser.uid });
+  document.getElementById("in-game-color-modal").classList.add("hidden");
+};
+
+// Rematch Button Handler
+document.getElementById("rematch-btn").onclick = () => {
+  const freshGame = new Chess();
+  freshGame.reset();
+  update(ref(db, `rooms/${currentRoom}`), { chessFEN: freshGame.fen() });
+  document.getElementById("game-over-modal").classList.add("hidden");
+};
 
 document.getElementById("start-game-btn").onclick = () => {
   if (!isHost) return;
@@ -304,12 +335,22 @@ document.getElementById("in-game-quit-btn").onclick = () => {
   quitCurrentRoom();
 };
 
+document.getElementById("modal-quit-btn").onclick = () => {
+  document.getElementById("game-over-modal").classList.add("hidden");
+  quitCurrentRoom();
+};
+
 function quitCurrentRoom() {
   if (currentRoom) {
     remove(ref(db, `rooms/${currentRoom}/players/${currentUser.uid}`));
+    remove(ref(db, `rooms/${currentRoom}/seats/white`));
+    remove(ref(db, `rooms/${currentRoom}/seats/black`));
     currentRoom = null;
   }
   chessGameInstance = null;
+  myAssignedColor = null;
+  document.getElementById("game-over-modal").classList.add("hidden");
+  document.getElementById("in-game-color-modal").classList.add("hidden");
   document.getElementById("active-game-screen").classList.add("hidden");
   document.getElementById("game-screen").classList.add("hidden");
   document.getElementById("user-profile-bar").classList.remove("hidden");
