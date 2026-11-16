@@ -102,7 +102,7 @@
   <div id="in-game-color-modal" class="overlay hidden" style="z-index: 10000;">
     <div class="modal-box" style="text-align: center; max-width: 320px; background: #1e293b; border: 1px solid #334155;">
       <h3>اختر لون القطع للبدء</h3>
-      <p style="color: #94a3b8; font-size: 0.85rem; margin: 10px 0;">اللون الذي تختاره سيكون في أسفل الرقعة، وسيتم تعيين اللون الآخر تلقائياً لخصمك:</p>
+      <p style="color: #94a3b8; font-size: 0.85rem; margin: 10px 0;">اللون الذي تختاره سيكون في أسفل الرقعة:</p>
       <div style="display: flex; gap: 12px; margin-top: 20px;">
         <button id="claim-white-btn" class="btn primary" style="flex: 1; background: #f8fafc; color: #0f172a; font-weight: bold;">⚪ أبيض</button>
         <button id="claim-black-btn" class="btn secondary" style="flex: 1; background: #334155; color: #f8fafc; font-weight: bold;">⚫ أسود</button>
@@ -175,8 +175,8 @@
       </label>
     </header>
 
-    <!-- 1. Login Screen -->
-    <section id="auth-screen" class="card">
+    <!-- 1. Login Screen (Hidden by default to prevent reload flash) -->
+    <section id="auth-screen" class="card hidden">
       <h2>تسجيل الدخول للبدء</h2>
       <button id="google-login-btn" class="btn google">Login</button>
       <button id="guest-login-btn" class="btn secondary">العب كضيف (Play as Guest)</button>
@@ -250,6 +250,6 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=260"></script>
+  <script type="module" src="app.js?v=270"></script>
 </body>
 </html>
