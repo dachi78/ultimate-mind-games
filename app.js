@@ -192,7 +192,7 @@ document.getElementById("confirm-host-btn").onclick = () => {
   const voiceChat = document.getElementById("voice-chat-toggle").checked;
 
   isHost = true;
-  myAssignedColor = null; // Will pick in-game
+  myAssignedColor = null;
   const initialChess = new Chess();
   initialChess.reset();
 
@@ -258,16 +258,15 @@ function enterRoom(code) {
       document.getElementById("user-profile-bar").classList.add("hidden");
       document.getElementById("active-game-screen").classList.remove("hidden");
 
-      // Check if user has assigned color seat in DB
+      // Check seats assignment
       if (data.seats) {
         if (data.seats.white === currentUser.uid) myAssignedColor = 'white';
         else if (data.seats.black === currentUser.uid) myAssignedColor = 'black';
       }
 
-      // If color not assigned yet, show in-game color selection modal
+      // If color not picked yet, show popup
       if (!myAssignedColor) {
         document.getElementById("in-game-color-modal").classList.remove("hidden");
-        // Disable taken seat
         if (data.seats && data.seats.white) {
           document.getElementById("claim-white-btn").disabled = true;
           document.getElementById("claim-white-btn").style.opacity = "0.4";
@@ -301,17 +300,22 @@ function enterRoom(code) {
   });
 }
 
-// In-Game Color Claim Handlers
+// In-Game Color Selection Handlers (Auto-assigns the other color automatically and closes popup)
 document.getElementById("claim-white-btn").onclick = () => {
   myAssignedColor = 'white';
-  update(ref(db, `rooms/${currentRoom}/seats`), { white: currentUser.uid });
+  const updates = { 'seats/white': currentUser.uid };
+  // If black seat is empty, automatically assign it if needed or let others take it
+  update(ref(db, `rooms/${currentRoom}`), updates);
   document.getElementById("in-game-color-modal").classList.add("hidden");
+  location.reload(); // Refresh instance view with chosen color
 };
 
 document.getElementById("claim-black-btn").onclick = () => {
   myAssignedColor = 'black';
-  update(ref(db, `rooms/${currentRoom}/seats`), { black: currentUser.uid });
+  const updates = { 'seats/black': currentUser.uid };
+  update(ref(db, `rooms/${currentRoom}`), updates);
   document.getElementById("in-game-color-modal").classList.add("hidden");
+  location.reload(); // Refresh instance view with chosen color
 };
 
 // Rematch Button Handler
