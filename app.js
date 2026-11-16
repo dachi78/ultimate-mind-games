@@ -243,11 +243,9 @@ function enterRoom(code) {
     const rosterList = document.getElementById("players-list");
     rosterList.innerHTML = "";
     let playersCount = 0;
-    let playersArray = [];
     if (data.players) {
       playersCount = Object.keys(data.players).length;
-      playersArray = Object.entries(data.players);
-      playersArray.forEach(([uid, p]) => {
+      Object.entries(data.players).forEach(([uid, p]) => {
         const li = document.createElement("li");
         li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
         li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role})</span>`;
@@ -302,18 +300,14 @@ function enterRoom(code) {
   });
 }
 
-// In-Game Color Selection Handlers (Clean and precise)
+// In-Game Color Selection Handlers (Fixed mapping for White and Black explicitly)
 document.getElementById("claim-white-btn").onclick = () => {
   myAssignedColor = 'white';
   const updates = { 'seats/white': currentUser.uid };
   
-  // If playing alone, also assign black
   const playersInRoom = document.querySelectorAll('#players-list li').length;
   if (playersInRoom < 2) {
-    updates['seats/black'] = currentUser.uid;
-  } else {
-    // If there is another player and they haven't taken black, automatically give them black if black is empty
-    // But since we are claiming white, let's just set seats/white = currentUser.uid
+    updates['seats/black'] = "bot_placeholder";
   }
 
   update(ref(db, `rooms/${currentRoom}`), updates);
@@ -326,7 +320,7 @@ document.getElementById("claim-black-btn").onclick = () => {
 
   const playersInRoom = document.querySelectorAll('#players-list li').length;
   if (playersInRoom < 2) {
-    updates['seats/white'] = currentUser.uid;
+    updates['seats/white'] = "bot_placeholder";
   }
 
   update(ref(db, `rooms/${currentRoom}`), updates);
