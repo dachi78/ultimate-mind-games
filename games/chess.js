@@ -1,6 +1,6 @@
 import { ref, update } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js";
 
-export function createChessGame({ boardContainerId, statusContainerId, db, currentRoom, isHost, players, myColor }) {
+export function createChessGame({ boardContainerId, statusContainerId, db, currentRoom, currentUser, players, myAssignedColor, onGameOver }) {
   let chessGame = new Chess();
   let selectedSquare = null;
   let legalMoves = [];
@@ -18,51 +18,56 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
 
     boardEl.innerHTML = "";
 
-    const playerArray = Object.values(players || {});
-    let whitePlayer = playerArray.find(p => p.color === 'white') || playerArray[0];
-    let blackPlayer = playerArray.find(p => p.color === 'black') || playerArray[1];
+    const playerList = Object.entries(players || {});
+    let myPlayerInfo = playerList.find(([uid]) => uid === currentUser.uid)?.[1] || { name: currentUser.displayName || "أنت", photoURL: currentUser.photoURL };
+    let opponentInfo = playerList.find(([uid]) => uid !== currentUser.uid)?.[1] || myPlayerInfo; // Duplicate if alone
 
-    if (!whitePlayer && playerArray.length > 0) whitePlayer = playerArray[0];
-    if (!blackPlayer) blackPlayer = whitePlayer;
-
-    // Interactive Mic & Speaker states
-    const toggleVoice = (e, type) => {
+    const toggleVoice = (e) => {
       e.target.style.opacity = e.target.style.opacity === '0.4' ? '1' : '0.4';
     };
 
-    // Render White Player Info
-    const whiteDisplay = document.getElementById("player-white-display");
-    if (whiteDisplay && whitePlayer) {
-      whiteDisplay.innerHTML = `
-        <img src="${whitePlayer.photoURL || 'https://via.placeholder.com/32'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #38bdf8;">
-        <span style="max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold;">${whitePlayer.name} (⚪)</span>
+    // Top Bar: Opponent Info
+    const opponentDisplay = document.getElementById("player-opponent-display");
+    if (opponentDisplay) {
+      const oppColorSymbol = myAssignedColor === 'white' ? '⚫' : '⚪';
+      opponentDisplay.innerHTML = `
+        <img src="${opponentInfo.photoURL || 'https://via.placeholder.com/32'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #ef4444;">
+        <span style="max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold;">${opponentInfo.name} (${oppColorSymbol})</span>
         <span class="mic-icon" title="ميكروفون" style="cursor:pointer; font-size:0.85rem; margin-left:4px;">🎙️</span>
         <span class="spk-icon" title="سماعة" style="cursor:pointer; font-size:0.85rem;">🔊</span>
       `;
-      whiteDisplay.querySelector('.mic-icon').onclick = (e) => toggleVoice(e, 'mic');
-      whiteDisplay.querySelector('.spk-icon').onclick = (e) => toggleVoice(e, 'spk');
+      opponentDisplay.querySelector('.mic-icon').onclick = toggleVoice;
+      opponentDisplay.querySelector('.spk-icon').onclick = toggleVoice;
     }
 
-    // Render Black Player Info
-    const blackDisplay = document.getElementById("player-black-display");
-    if (blackDisplay && blackPlayer) {
-      blackDisplay.innerHTML = `
-        <span class="spk-icon" title="سماعة" style="cursor:pointer; font-size:0.85rem; margin-right:4px;">🔊</span>
-        <span class="mic-icon" title="ميكروفون" style="cursor:pointer; font-size:0.85rem;">🎙️</span>
-        <span style="max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold;">(⚫) ${blackPlayer.name}</span>
-        <img src="${blackPlayer.photoURL || 'https://via.placeholder.com/32'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #38bdf8;">
+    // Bottom Bar: My Info
+    const selfDisplay = document.getElementById("player-self-display");
+    if (selfDisplay) {
+      const myColorSymbol = myAssignedColor === 'white' ? '⚪' : '⚫';
+      selfDisplay.innerHTML = `
+        <img src="${myPlayerInfo.photoURL || 'https://via.placeholder.com/32'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #38bdf8;">
+        <span style="max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold;">${myPlayerInfo.name} (${myColorSymbol})</span>
+        <span class="mic-icon" title="ميكروفون" style="cursor:pointer; font-size:0.85rem; margin-left:4px;">🎙️</span>
+        <span class="spk-icon" title="سماعة" style="cursor:pointer; font-size:0.85rem;">🔊</span>
       `;
-      blackDisplay.querySelector('.mic-icon').onclick = (e) => toggleVoice(e, 'mic');
-      blackDisplay.querySelector('.spk-icon').onclick = (e) => toggleVoice(e, 'spk');
+      selfDisplay.querySelector('.mic-icon').onclick = toggleVoice;
+      selfDisplay.querySelector('.spk-icon').onclick = toggleVoice;
+    }
+
+    const colorIndicator = document.getElementById("my-color-indicator");
+    if (colorIndicator) {
+      colorIndicator.innerText = `لونك: ${myAssignedColor === 'white' ? 'أبيض ⚪' : 'أسود ⚫'}`;
     }
 
     const isAlone = playersCount < 2;
     if (chessGame.in_checkmate()) {
-      statusEl.innerText = `🏁 مات الملك (Checkmate)!`;
+      statusEl.innerText = `🏁 انتهت اللعبة: مات الملك!`;
       statusEl.style.color = "#ef4444";
+      if (onGameOver) onGameOver("Checkmate!");
     } else if (chessGame.in_draw()) {
       statusEl.innerText = `🤝 تعادل (Draw)!`;
       statusEl.style.color = "#f59e0b";
+      if (onGameOver) onGameOver("Draw!");
     } else {
       const turnName = chessGame.turn() === 'w' ? 'الأبيض (White)' : 'الأسود (Black)';
       statusEl.innerText = `دور: ${turnName} ${isAlone ? '(تدريب فردي)' : ''} ${chessGame.in_check() ? '⚠️ (كيش!)' : ''}`;
@@ -70,9 +75,14 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
     }
 
     const board = chessGame.board();
+    const isFlipped = myAssignedColor === 'black';
 
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
+    // Loop rows based on perspective
+    const rowIndices = isFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+    const colIndices = isFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+
+    for (let r of rowIndices) {
+      for (let c of colIndices) {
         const squareEl = document.createElement("div");
         const isDark = (r + c) % 2 === 1;
         const file = 'abcdefgh'[c];
@@ -126,7 +136,6 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
   }
 
   function handleSquareClick(square, playersCount) {
-    const myAssignedColor = myColor || (isHost ? 'white' : 'black');
     const myTurnLetter = myAssignedColor === 'white' ? 'w' : 'b';
     const isAlone = playersCount < 2;
 
@@ -145,7 +154,6 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
         render(null, playersCount);
       }
     } else {
-      // Attempt to make a move (including captures/elimination)
       const move = chessGame.move({
         from: selectedSquare,
         to: square,
@@ -159,7 +167,6 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
           chessFEN: chessGame.fen()
         });
       } else {
-        // If move failed, check if clicking another own piece to switch selection
         if (clickedPiece && (isAlone || clickedPiece.color === chessGame.turn())) {
           selectedSquare = square;
           legalMoves = chessGame.moves({ square: square, verbose: true });
