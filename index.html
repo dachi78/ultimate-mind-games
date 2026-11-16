@@ -98,14 +98,26 @@
     </div>
   </div>
 
-  <!-- Color Selection Modal -->
-  <div id="color-selection-modal" class="overlay hidden" style="z-index: 5000;">
-    <div class="modal-box" style="text-align: center; max-width: 320px;">
-      <h3>اختر لون القطع الخاصة بك</h3>
-      <p style="color: #94a3b8; font-size: 0.85rem; margin: 10px 0;">اختر ما إذا كنت تريد اللعب بالقطع البيضاء أو السوداء</p>
+  <!-- In-Game Color Selection Modal -->
+  <div id="in-game-color-modal" class="overlay hidden" style="z-index: 10000;">
+    <div class="modal-box" style="text-align: center; max-width: 320px; background: #1e293b; border: 1px solid #334155;">
+      <h3>اختر لون القطع للبدء</h3>
+      <p style="color: #94a3b8; font-size: 0.85rem; margin: 10px 0;">اختر مقعدك في المباراة:</p>
       <div style="display: flex; gap: 12px; margin-top: 20px;">
-        <button id="pick-white-btn" class="btn primary" style="flex: 1; background: #f8fafc; color: #0f172a; font-weight: bold;">⚪ أبيض</button>
-        <button id="pick-black-btn" class="btn secondary" style="flex: 1; background: #334155; color: #f8fafc; font-weight: bold;">⚫ أسود</button>
+        <button id="claim-white-btn" class="btn primary" style="flex: 1; background: #f8fafc; color: #0f172a; font-weight: bold;">⚪ أبيض (White)</button>
+        <button id="claim-black-btn" class="btn secondary" style="flex: 1; background: #334155; color: #f8fafc; font-weight: bold;">⚫ أسود (Black)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Modal (Rematch / Quit) -->
+  <div id="game-over-modal" class="overlay hidden" style="z-index: 10000;">
+    <div class="modal-box" style="text-align: center; max-width: 340px; background: #1e293b; border: 1px solid #334155;">
+      <h3 id="game-over-title" style="color: #38bdf8; margin-bottom: 10px;">🏁 انتهت اللعبة</h3>
+      <p id="game-over-message" style="color: #f8fafc; font-size: 0.95rem; margin-bottom: 20px;"></p>
+      <div style="display: flex; gap: 10px;">
+        <button id="rematch-btn" class="btn success" style="flex: 1;">🔄 إعادة اللعب (Rematch)</button>
+        <button id="modal-quit-btn" class="btn secondary" style="flex: 1; background: #ef4444; color: white;">🚪 مغادرة</button>
       </div>
     </div>
   </div>
@@ -218,27 +230,26 @@
     </footer>
   </div>
 
-  <!-- Full-Screen Immersive Game View (Optimized for Desktop & Mobile) -->
+  <!-- Full-Screen Immersive Game View -->
   <div id="active-game-screen" class="hidden" style="position: fixed; inset: 0; width: 100vw; height: 100vh; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: space-between; box-sizing: border-box; padding: 12px; overflow: hidden;">
     
-    <!-- Top Header: Profiles, Voice Chat Icons & Small Exit Icon -->
-    <div style="width: 100%; max-width: 800px; display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 10px 16px; border-radius: 8px; border: 1px solid #334155; box-sizing: border-box;">
-      <div id="player-white-display" style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #f8fafc;"></div>
-      
-      <div id="chess-status" style="font-weight: bold; color: #38bdf8; font-size: 0.95rem; text-align: center;">دور: الأبيض</div>
-
-      <div id="player-black-display" style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #f8fafc;"></div>
-
-      <!-- Small Exit Icon Button -->
-      <button id="in-game-quit-btn" title="مغادرة" style="background: none; border: none; color: #ef4444; font-size: 1.4rem; cursor: pointer; padding: 2px 8px; font-weight: bold;">✕</button>
+    <!-- Top Bar: Opponent Profile + Mic/Speaker + Small Exit Icon -->
+    <div style="width: 100%; max-width: 650px; display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 8px 14px; border-radius: 8px; border: 1px solid #334155; box-sizing: border-box;">
+      <div id="player-opponent-display" style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #f8fafc;"></div>
+      <div id="chess-status" style="font-weight: bold; color: #38bdf8; font-size: 0.85rem; text-align: center;">دور: الأبيض</div>
+      <button id="in-game-quit-btn" title="مغادرة" style="background: none; border: none; color: #ef4444; font-size: 1.3rem; cursor: pointer; padding: 2px 6px; font-weight: bold;">✕</button>
     </div>
 
-    <!-- Centered Large Chess Board (Fully Optimized for Desktop & Mobile) -->
-    <div id="chess-board-container" style="display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: min(78vh, 650px); aspect-ratio: 1/1; border: 4px solid #334155; border-radius: 8px; user-select: none; box-shadow: 0 20px 40px rgba(0,0,0,0.7); margin: auto;"></div>
+    <!-- Centered Large Chess Board -->
+    <div id="chess-board-container" style="display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: min(72vh, 520px); aspect-ratio: 1/1; border: 4px solid #334155; border-radius: 8px; user-select: none; box-shadow: 0 15px 35px rgba(0,0,0,0.6); margin: auto;"></div>
 
-    <div style="height: 10px;"></div>
+    <!-- Bottom Bar: My Profile + Mic/Speaker -->
+    <div style="width: 100%; max-width: 650px; display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 8px 14px; border-radius: 8px; border: 1px solid #334155; box-sizing: border-box;">
+      <div id="player-self-display" style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #f8fafc;"></div>
+      <div style="font-size: 0.8rem; color: #94a3b8;" id="my-color-indicator">لونك: --</div>
+    </div>
   </div>
 
-  <script type="module" src="app.js?v=230"></script>
+  <script type="module" src="app.js?v=240"></script>
 </body>
 </html>
