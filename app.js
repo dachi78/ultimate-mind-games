@@ -243,9 +243,11 @@ function enterRoom(code) {
     const rosterList = document.getElementById("players-list");
     rosterList.innerHTML = "";
     let playersCount = 0;
+    let playersArray = [];
     if (data.players) {
       playersCount = Object.keys(data.players).length;
-      Object.entries(data.players).forEach(([uid, p]) => {
+      playersArray = Object.entries(data.players);
+      playersArray.forEach(([uid, p]) => {
         const li = document.createElement("li");
         li.style.cssText = "display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 8px;";
         li.innerHTML = `<img src="${p.photoURL || 'https://via.placeholder.com/30'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;"> <span>${p.name} (${p.role})</span>`;
@@ -300,15 +302,20 @@ function enterRoom(code) {
   });
 }
 
-// In-Game Color Selection Handlers (Auto-assigns the other color to the opponent instantly without reload)
+// In-Game Color Selection Handlers (Clean and precise)
 document.getElementById("claim-white-btn").onclick = () => {
   myAssignedColor = 'white';
   const updates = { 'seats/white': currentUser.uid };
-  // Automatically assign black to the other player if available
-  const activePlayers = document.querySelectorAll('#players-list li');
-  if (activePlayers.length < 2) {
-    updates['seats/black'] = currentUser.uid; // Solo training fallback
+  
+  // If playing alone, also assign black
+  const playersInRoom = document.querySelectorAll('#players-list li').length;
+  if (playersInRoom < 2) {
+    updates['seats/black'] = currentUser.uid;
+  } else {
+    // If there is another player and they haven't taken black, automatically give them black if black is empty
+    // But since we are claiming white, let's just set seats/white = currentUser.uid
   }
+
   update(ref(db, `rooms/${currentRoom}`), updates);
   document.getElementById("in-game-color-modal").classList.add("hidden");
 };
@@ -316,12 +323,12 @@ document.getElementById("claim-white-btn").onclick = () => {
 document.getElementById("claim-black-btn").onclick = () => {
   myAssignedColor = 'black';
   const updates = { 'seats/black': currentUser.uid };
-  const activePlayers = document.querySelectorAll('#players-list li');
-  if (activePlayers.length < 2) {
-    updates['seats/white'] = currentUser.uid; // Solo training fallback
-  } else {
-    updates['seats/white'] = isHost ? auth.currentUser.uid : "other"; // Assign white to other
+
+  const playersInRoom = document.querySelectorAll('#players-list li').length;
+  if (playersInRoom < 2) {
+    updates['seats/white'] = currentUser.uid;
   }
+
   update(ref(db, `rooms/${currentRoom}`), updates);
   document.getElementById("in-game-color-modal").classList.add("hidden");
 };
