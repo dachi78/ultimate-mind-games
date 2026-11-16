@@ -20,18 +20,21 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
 
     const playerList = Object.entries(players || {});
     let myPlayerInfo = playerList.find(([uid]) => uid === currentUser.uid)?.[1] || { name: currentUser.displayName || "أنت", photoURL: currentUser.photoURL };
-    let opponentInfo = playerList.find(([uid]) => uid !== currentUser.uid)?.[1] || myPlayerInfo;
+    
+    // Find opponent or use Bot placeholder if alone
+    let opponentEntry = playerList.find(([uid]) => uid !== currentUser.uid);
+    let opponentInfo = opponentEntry ? opponentEntry[1] : { name: "الخصم (بوت أو منتظر)", photoURL: "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/anonymous.png" };
 
     const toggleVoice = (e) => {
       e.target.style.opacity = e.target.style.opacity === '0.4' ? '1' : '0.4';
     };
 
-    // Top Bar: Opponent Info
+    // Top Bar: Opponent / Bot Info
     const opponentDisplay = document.getElementById("player-opponent-display");
     if (opponentDisplay) {
       const oppColorSymbol = myAssignedColor === 'white' ? '⚫' : '⚪';
       opponentDisplay.innerHTML = `
-        <img src="${opponentInfo.photoURL || 'https://via.placeholder.com/32'}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #ef4444;">
+        <img src="${opponentInfo.photoURL}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #ef4444;">
         <span style="max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold;">${opponentInfo.name} (${oppColorSymbol})</span>
         <span class="mic-icon" title="ميكروفون" style="cursor:pointer; font-size:0.85rem; margin-left:4px;">🎙️</span>
         <span class="spk-icon" title="سماعة" style="cursor:pointer; font-size:0.85rem;">🔊</span>
@@ -70,13 +73,14 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
       if (onGameOver) onGameOver("Draw!");
     } else {
       const turnName = chessGame.turn() === 'w' ? 'الأبيض (White)' : 'الأسود (Black)';
-      statusEl.innerText = `دور: ${turnName} ${isAlone ? '(تدريب فردي)' : ''} ${chessGame.in_check() ? '⚠️ (كيش!)' : ''}`;
+      statusEl.innerText = `دور: ${turnName} ${isAlone ? '(تدريب مع بوت/فردي)' : ''} ${chessGame.in_check() ? '⚠️ (كيش!)' : ''}`;
       statusEl.style.color = "#38bdf8";
     }
 
     const board = chessGame.board();
     const isFlipped = myAssignedColor === 'black';
 
+    // If black is chosen, board flips so black pieces are at the bottom
     const rowIndices = isFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
     const colIndices = isFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
 
@@ -138,6 +142,7 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
     const myTurnLetter = myAssignedColor === 'white' ? 'w' : 'b';
     const isAlone = playersCount < 2;
 
+    // If playing with a real opponent, ensure it's your turn
     if (!isAlone && chessGame.turn() !== myTurnLetter) {
       return; 
     }
