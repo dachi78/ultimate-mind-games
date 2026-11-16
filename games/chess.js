@@ -20,7 +20,7 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
 
     const playerList = Object.entries(players || {});
     let myPlayerInfo = playerList.find(([uid]) => uid === currentUser.uid)?.[1] || { name: currentUser.displayName || "أنت", photoURL: currentUser.photoURL };
-    let opponentInfo = playerList.find(([uid]) => uid !== currentUser.uid)?.[1] || myPlayerInfo; // Duplicate if alone
+    let opponentInfo = playerList.find(([uid]) => uid !== currentUser.uid)?.[1] || myPlayerInfo;
 
     const toggleVoice = (e) => {
       e.target.style.opacity = e.target.style.opacity === '0.4' ? '1' : '0.4';
@@ -77,7 +77,7 @@ export function createChessGame({ boardContainerId, statusContainerId, db, curre
     const board = chessGame.board();
     const isFlipped = myAssignedColor === 'black';
 
-    // Loop rows based on perspective
+    // If black, board is flipped so black pieces are at the bottom
     const rowIndices = isFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
     const colIndices = isFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
 
